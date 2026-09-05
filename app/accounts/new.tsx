@@ -1,0 +1,74 @@
+import { useState } from "react";
+import { View } from "react-native";
+import { useRouter } from "expo-router";
+
+import { createAccountLocally } from "@/data/repositories/accounts";
+import { parseCentsFromInput } from "@/domain/money";
+import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
+import { useTokens } from "@/ui/tokens";
+
+const TYPES: { value: string; label: string }[] = [
+  { value: "checking", label: "Monetaria" },
+  { value: "savings", label: "Ahorro" },
+  { value: "cash", label: "Efectivo" },
+  { value: "credit_card", label: "Tarjeta" },
+  { value: "digital_wallet", label: "Billetera" },
+];
+
+export default function NewAccountScreen() {
+  const router = useRouter();
+  const { spacing } = useTokens();
+
+  const [name, setName] = useState("");
+  const [type, setType] = useState("checking");
+  const [balance, setBalance] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function onSubmit() {
+    if (!name.trim()) return;
+    setBusy(true);
+    await createAccountLocally({
+      name: name.trim(),
+      type,
+      initialBalanceCents: parseCentsFromInput(balance) ?? 0,
+    });
+    router.back();
+  }
+
+  return (
+    <Screen style={{ gap: spacing[4], paddingTop: spacing[5] }}>
+      <Text variant="title1">Nueva cuenta</Text>
+      <Input label="Nombre" value={name} onChangeText={setName} placeholder="BAC Monetaria" />
+
+      <View style={{ gap: spacing[2] }}>
+        <Text variant="caption" color="secondary">
+          Tipo
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
+          {TYPES.map((t) => (
+            <Chip
+              key={t.value}
+              label={t.label}
+              selected={type === t.value}
+              onPress={() => setType(t.value)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <Input
+        label="Saldo actual"
+        value={balance}
+        onChangeText={setBalance}
+        keyboardType="decimal-pad"
+        placeholder="0.00"
+      />
+
+      <Button
+        label={busy ? "Guardando…" : "Guardar"}
+        onPress={onSubmit}
+        disabled={busy || !name.trim()}
+      />
+    </Screen>
+  );
+}
