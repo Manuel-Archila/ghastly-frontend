@@ -1,11 +1,16 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, like, lte, or, sql } from "drizzle-orm";
 
 import { db } from "@/data/db/client";
-import { accounts, outboxMutations, transactions } from "@/data/db/schema";
+import { accounts, categories, outboxMutations, transactions } from "@/data/db/schema";
 import { signedDelta, type AccountType } from "@/domain/balances";
 import { uuidv7 } from "@/lib/uuid";
 
 export type Transaction = typeof transactions.$inferSelect;
+
+export interface TransactionListItem extends Transaction {
+  categoryName: string | null;
+  accountName: string | null;
+}
 
 export interface CreateTransactionInput {
   accountId: string;
@@ -16,12 +21,30 @@ export interface CreateTransactionInput {
   description?: string | null;
 }
 
+async function applyBalanceDelta(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  accountId: string,
+  kind: "expense" | "income" | "transfer",
+  amountCents: number,
+  transferDirection: "in" | "out" | null,
+  now: string,
+): Promise<void> {
+  const rows = await tx.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  const account = rows[0];
+  if (!account) return;
+  const delta = signedDelta(
+    { kind, amountCents, transferDirection },
+    account.type as AccountType,
+  );
+  await tx
+    .update(accounts)
+    .set({ currentBalanceCents: account.currentBalanceCents + delta, updatedAt: now })
+    .where(eq(accounts.id, accountId));
+}
+
 /**
- * Escribe el gasto en SQLite y encola la mutación en el outbox, todo en
- * una transacción de DB. La UI se actualiza al instante (0 ms); el sync
- * worker empuja después (PLAN-frontend §3). El saldo se actualiza local
- * con `domain/balances` para pintar rápido — el servidor lo sobrescribe
- * al llegar el pull.
+ * Escribe el movimiento en SQLite y encola la mutación en el outbox, todo
+ * en una transacción de DB. La UI se actualiza al instante (PLAN-frontend §3).
  */
 export async function createTransactionLocally(input: CreateTransactionInput): Promise<string> {
   const id = uuidv7();
@@ -41,24 +64,7 @@ export async function createTransactionLocally(input: CreateTransactionInput): P
       createdAt: now,
       updatedAt: now,
     });
-
-    const accountRows = await tx
-      .select()
-      .from(accounts)
-      .where(eq(accounts.id, input.accountId))
-      .limit(1);
-    const account = accountRows[0];
-    if (account) {
-      const delta = signedDelta(
-        { kind: input.kind, amountCents: input.amountCents },
-        account.type as AccountType,
-      );
-      await tx
-        .update(accounts)
-        .set({ currentBalanceCents: account.currentBalanceCents + delta, updatedAt: now })
-        .where(eq(accounts.id, input.accountId));
-    }
-
+    await applyBalanceDelta(tx, input.accountId, input.kind, input.amountCents, null, now);
     await tx.insert(outboxMutations).values({
       clientMutationId: uuidv7(),
       entityType: "transaction",
@@ -82,13 +88,234 @@ export async function createTransactionLocally(input: CreateTransactionInput): P
   return id;
 }
 
-export async function listRecentTransactions(limit = 50): Promise<Transaction[]> {
-  return db
-    .select()
+export interface CreateTransferInput {
+  fromAccountId: string;
+  toAccountId: string;
+  amountCents: number;
+  date: string;
+  description?: string | null;
+}
+
+/**
+ * Una transferencia son dos filas atómicas ligadas por `transfer_group_id`.
+ * El backend NO acepta crearla por `/sync/push` genérico (rompería el par),
+ * así que el outbox lleva UNA entrada `transfer` y `sync/push.ts` la manda
+ * a `POST /transactions/transfer`.
+ */
+export async function createTransferLocally(input: CreateTransferInput): Promise<string> {
+  const groupId = uuidv7();
+  const outId = uuidv7();
+  const inId = uuidv7();
+  const now = new Date().toISOString();
+
+  await db.transaction(async (tx) => {
+    for (const [id, accountId, direction] of [
+      [outId, input.fromAccountId, "out"] as const,
+      [inId, input.toAccountId, "in"] as const,
+    ]) {
+      await tx.insert(transactions).values({
+        id,
+        accountId,
+        kind: "transfer",
+        amountCents: input.amountCents,
+        currency: "GTQ",
+        date: input.date,
+        description: input.description ?? null,
+        transferGroupId: groupId,
+        transferDirection: direction,
+        tags: [],
+        createdAt: now,
+        updatedAt: now,
+      });
+      await applyBalanceDelta(tx, accountId, "transfer", input.amountCents, direction, now);
+    }
+    await tx.insert(outboxMutations).values({
+      clientMutationId: uuidv7(),
+      entityType: "transfer",
+      entityId: groupId,
+      op: "upsert",
+      payload: {
+        out_transaction_id: outId,
+        in_transaction_id: inId,
+        from_account_id: input.fromAccountId,
+        to_account_id: input.toAccountId,
+        amount_cents: input.amountCents,
+        date: input.date,
+        description: input.description ?? null,
+      },
+      clientUpdatedAt: now,
+      createdAt: now,
+    });
+  });
+
+  return groupId;
+}
+
+export interface UpdateTransactionInput {
+  categoryId?: string | null;
+  date?: string;
+  description?: string | null;
+  merchant?: string | null;
+  notes?: string | null;
+}
+
+export async function updateTransactionLocally(
+  id: string,
+  patch: UpdateTransactionInput,
+): Promise<void> {
+  const now = new Date().toISOString();
+  await db.transaction(async (tx) => {
+    await tx.update(transactions).set({ ...patch, updatedAt: now }).where(eq(transactions.id, id));
+    const payload: Record<string, unknown> = {};
+    if (patch.categoryId !== undefined) payload.category_id = patch.categoryId;
+    if (patch.date !== undefined) payload.date = patch.date;
+    if (patch.description !== undefined) payload.description = patch.description;
+    if (patch.merchant !== undefined) payload.merchant = patch.merchant;
+    if (patch.notes !== undefined) payload.notes = patch.notes;
+    await tx.insert(outboxMutations).values({
+      clientMutationId: uuidv7(),
+      entityType: "transaction",
+      entityId: id,
+      op: "upsert",
+      payload,
+      clientUpdatedAt: now,
+      createdAt: now,
+    });
+  });
+}
+
+/**
+ * Reembolso (caso de negocio 2): crea un `income` ligado al gasto original
+ * por `refundOfId`, en la misma categoría. En reportes resta del gasto de
+ * esa categoría (no suma a ingresos) — eso lo hace el backend. El outbox
+ * lleva una entrada `refund` que `sync/push.ts` manda a
+ * `POST /transactions/{original}/refund`.
+ */
+export async function createRefundLocally(
+  original: Transaction,
+  amountCents?: number,
+): Promise<string> {
+  const refundId = uuidv7();
+  const now = new Date().toISOString();
+  const amount = amountCents ?? original.amountCents;
+  const dateIso = now.slice(0, 10);
+
+  await db.transaction(async (tx) => {
+    await tx.insert(transactions).values({
+      id: refundId,
+      accountId: original.accountId,
+      categoryId: original.categoryId,
+      kind: "income",
+      amountCents: amount,
+      currency: original.currency,
+      date: dateIso,
+      description: original.description ? `Reembolso: ${original.description}` : "Reembolso",
+      refundOfId: original.id,
+      tags: [],
+      createdAt: now,
+      updatedAt: now,
+    });
+    await applyBalanceDelta(tx, original.accountId, "income", amount, null, now);
+    await tx.insert(outboxMutations).values({
+      clientMutationId: uuidv7(),
+      entityType: "refund",
+      entityId: refundId,
+      op: "upsert",
+      payload: {
+        original_id: original.id,
+        id: refundId,
+        amount_cents: amount,
+        date: dateIso,
+      },
+      clientUpdatedAt: now,
+      createdAt: now,
+    });
+  });
+
+  return refundId;
+}
+
+export async function deleteTransactionLocally(id: string): Promise<void> {
+  const now = new Date().toISOString();
+  await db.transaction(async (tx) => {
+    const rows = await tx.select().from(transactions).where(eq(transactions.id, id)).limit(1);
+    const txn = rows[0];
+    if (txn && !txn.deletedAt && txn.kind !== "transfer") {
+      // Revertir el saldo optimista: el gasto/ingreso deja de contar.
+      const reverseKind = txn.kind === "expense" ? "income" : "expense";
+      await applyBalanceDelta(
+        tx,
+        txn.accountId,
+        reverseKind as "expense" | "income",
+        txn.amountCents,
+        null,
+        now,
+      );
+    }
+    await tx.update(transactions).set({ deletedAt: now, updatedAt: now }).where(eq(transactions.id, id));
+    await tx.insert(outboxMutations).values({
+      clientMutationId: uuidv7(),
+      entityType: "transaction",
+      entityId: id,
+      op: "delete",
+      payload: { id },
+      clientUpdatedAt: now,
+      createdAt: now,
+    });
+  });
+}
+
+export interface TransactionFilters {
+  search?: string;
+  kind?: "expense" | "income" | "transfer";
+  from?: string;
+  to?: string;
+}
+
+export async function listTransactions(
+  filters: TransactionFilters = {},
+  limit = 100,
+): Promise<TransactionListItem[]> {
+  const conditions = [isNull(transactions.deletedAt)];
+  if (filters.kind) conditions.push(eq(transactions.kind, filters.kind));
+  if (filters.from) conditions.push(gte(transactions.date, filters.from));
+  if (filters.to) conditions.push(lte(transactions.date, filters.to));
+  if (filters.search) {
+    const q = `%${filters.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        like(sql`lower(${transactions.description})`, q),
+        like(sql`lower(${transactions.merchant})`, q),
+      )!,
+    );
+  }
+
+  const rows = await db
+    .select({
+      txn: transactions,
+      categoryName: categories.name,
+      accountName: accounts.name,
+    })
     .from(transactions)
-    .where(isNull(transactions.deletedAt))
+    .leftJoin(categories, eq(categories.id, transactions.categoryId))
+    .leftJoin(accounts, eq(accounts.id, transactions.accountId))
+    .where(and(...conditions))
     .orderBy(desc(transactions.date), desc(transactions.id))
     .limit(limit);
+
+  return rows.map((r) => ({ ...r.txn, categoryName: r.categoryName, accountName: r.accountName }));
+}
+
+export async function getTransaction(id: string): Promise<TransactionListItem | undefined> {
+  const rows = await db
+    .select({ txn: transactions, categoryName: categories.name, accountName: accounts.name })
+    .from(transactions)
+    .leftJoin(categories, eq(categories.id, transactions.categoryId))
+    .leftJoin(accounts, eq(accounts.id, transactions.accountId))
+    .where(eq(transactions.id, id))
+    .limit(1);
+  const r = rows[0];
+  return r ? { ...r.txn, categoryName: r.categoryName, accountName: r.accountName } : undefined;
 }
 
 export async function countPendingOutbox(): Promise<number> {

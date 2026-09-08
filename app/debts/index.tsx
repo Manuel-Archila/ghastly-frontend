@@ -1,0 +1,66 @@
+import { useCallback, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+
+import { listDebts, type Debt } from "@/data/repositories/commitments";
+import { Money } from "@/domain/money";
+import { Button, Screen, Text } from "@/ui/primitives";
+import { useTokens } from "@/ui/tokens";
+
+export default function DebtsScreen() {
+  const router = useRouter();
+  const { spacing, colors } = useTokens();
+  const [debts, setDebts] = useState<Debt[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void listDebts().then(setDebts);
+    }, []),
+  );
+
+  const total = debts.reduce((s, d) => s + d.balanceCents, 0);
+
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4] }}>
+        <Text variant="title1">Deudas</Text>
+        <View>
+          <Text variant="caption" color="secondary">
+            Total que debés
+          </Text>
+          <Text variant="display" style={{ color: colors.expense.fg }}>
+            {new Money(total).format()}
+          </Text>
+        </View>
+        <Button label="Nueva deuda" onPress={() => router.push("/debts/new")} />
+
+        {debts.map((d) => (
+          <Pressable
+            key={d.id}
+            onPress={() => router.push(`/debts/${d.id}`)}
+            style={{
+              paddingVertical: spacing[2],
+              borderBottomWidth: 1,
+              borderBottomColor: colors.border.subtle,
+            }}
+          >
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text variant="body">{d.name}</Text>
+              <Text variant="bodyStrong">{new Money(d.balanceCents).format()}</Text>
+            </View>
+            <Text variant="caption" color="tertiary">
+              de {new Money(d.principalCents).format()} · {(d.monthlyInterestRate * 100).toFixed(2)}%/mes
+              {d.status === "paid_off" ? " · pagada ✓" : ""}
+            </Text>
+          </Pressable>
+        ))}
+
+        {debts.length === 0 ? (
+          <Text variant="body" color="secondary">
+            No hay deudas registradas.
+          </Text>
+        ) : null}
+      </ScrollView>
+    </Screen>
+  );
+}

@@ -1,9 +1,39 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/data/db/client";
-import { categories, transactions } from "@/data/db/schema";
+import { categories, outboxMutations, transactions } from "@/data/db/schema";
+import { uuidv7 } from "@/lib/uuid";
 
 export type Category = typeof categories.$inferSelect;
+
+export async function createCategoryLocally(input: {
+  name: string;
+  kind: "expense" | "income";
+  parentId?: string | null;
+}): Promise<string> {
+  const id = uuidv7();
+  const now = new Date().toISOString();
+  await db.transaction(async (tx) => {
+    await tx.insert(categories).values({
+      id,
+      name: input.name,
+      kind: input.kind,
+      parentId: input.parentId ?? null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await tx.insert(outboxMutations).values({
+      clientMutationId: uuidv7(),
+      entityType: "category",
+      entityId: id,
+      op: "upsert",
+      payload: { id, name: input.name, kind: input.kind, parent_id: input.parentId ?? null },
+      clientUpdatedAt: now,
+      createdAt: now,
+    });
+  });
+  return id;
+}
 
 export async function listCategories(kind?: "expense" | "income"): Promise<Category[]> {
   const conditions = [isNull(categories.deletedAt), eq(categories.isArchived, false)];

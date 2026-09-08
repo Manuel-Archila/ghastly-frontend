@@ -3,8 +3,10 @@ import { RefreshControl, ScrollView, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { listAccounts, type Account } from "@/data/repositories/accounts";
+import { listCategories } from "@/data/repositories/categories";
 import { countPendingOutbox } from "@/data/repositories/transactions";
 import { runSync } from "@/data/sync";
+import { seedCategoriesFromServer } from "@/features/categories/seed";
 import { Money } from "@/domain/money";
 import { Button, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
@@ -17,12 +19,19 @@ export default function TodayScreen() {
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [pending, setPending] = useState(0);
+  const [categoryCount, setCategoryCount] = useState(0);
   const [syncing, setSyncing] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [accs, count] = await Promise.all([listAccounts(), countPendingOutbox()]);
+    const [accs, count, cats] = await Promise.all([
+      listAccounts(),
+      countPendingOutbox(),
+      listCategories(),
+    ]);
     setAccounts(accs);
     setPending(count);
+    setCategoryCount(cats.length);
   }, []);
 
   useFocusEffect(
@@ -41,11 +50,19 @@ export default function TodayScreen() {
     }
   }, [refresh]);
 
+  const onSeed = useCallback(async () => {
+    setSeeding(true);
+    try {
+      await seedCategoriesFromServer();
+    } finally {
+      setSeeding(false);
+      await refresh();
+    }
+  }, [refresh]);
+
   const netWorthCents = accounts.reduce(
     (sum, a) =>
-      LIABILITY_TYPES.has(a.type)
-        ? sum - a.currentBalanceCents
-        : sum + a.currentBalanceCents,
+      LIABILITY_TYPES.has(a.type) ? sum - a.currentBalanceCents : sum + a.currentBalanceCents,
     0,
   );
 
@@ -75,14 +92,22 @@ export default function TodayScreen() {
             style={{ flex: 1 }}
           />
           <Button
-            label={syncing ? "Sincronizando…" : "Sincronizar"}
+            label="Transferir"
             variant="secondary"
-            onPress={onSync}
-            disabled={syncing}
+            onPress={() => router.push("/(modals)/transfer")}
             fullWidth={false}
             style={{ flex: 1 }}
           />
         </View>
+
+        {categoryCount === 0 ? (
+          <Button
+            label={seeding ? "Trayendo…" : "Traer categorías del servidor"}
+            variant="ghost"
+            onPress={onSeed}
+            disabled={seeding}
+          />
+        ) : null}
 
         <View style={{ gap: spacing[2] }}>
           <Text variant="caption" color="secondary">
@@ -112,9 +137,7 @@ export default function TodayScreen() {
                   <Text
                     variant="bodyStrong"
                     style={{
-                      color: LIABILITY_TYPES.has(a.type)
-                        ? colors.expense.fg
-                        : colors.text.primary,
+                      color: LIABILITY_TYPES.has(a.type) ? colors.expense.fg : colors.text.primary,
                     }}
                   >
                     {new Money(a.currentBalanceCents).format()}

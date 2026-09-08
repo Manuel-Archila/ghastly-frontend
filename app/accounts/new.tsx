@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 
 import { createAccountLocally } from "@/data/repositories/accounts";
 import { parseCentsFromInput } from "@/domain/money";
+import { triggerSync } from "@/features/sync/sync-manager";
 import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
@@ -32,6 +33,7 @@ export default function NewAccountScreen() {
       type,
       initialBalanceCents: parseCentsFromInput(balance) ?? 0,
     });
+    triggerSync();
     router.back();
   }
 

@@ -1,12 +1,14 @@
 import { Platform } from "react-native";
-import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 
-import { api, setAccessToken } from "@/data/api/client";
+import { api } from "@/data/api/client";
+import {
+  clearTokens,
+  loadTokens,
+  registerAuthLostHandler,
+  setTokens,
+} from "@/data/api/token-store";
 import { getOrCreateDeviceId } from "@/lib/deviceId";
-
-const ACCESS_TOKEN_KEY = "ghastly.accessToken";
-const REFRESH_TOKEN_KEY = "ghastly.refreshToken";
 
 export interface SessionUser {
   id: string;
@@ -37,19 +39,19 @@ export const useSessionStore = create<SessionState>((set) => ({
   user: null,
 
   async restore() {
-    const token = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
-    if (!token) {
+    // Si el cliente HTTP pierde la sesión (refresh falló), volvemos a login.
+    registerAuthLostHandler(() => set({ status: "unauthenticated", user: null }));
+
+    const hasToken = await loadTokens();
+    if (!hasToken) {
       set({ status: "unauthenticated" });
       return;
     }
-    setAccessToken(token);
     try {
       const user = await api.get<SessionUser>("/auth/me");
       set({ status: "authenticated", user });
     } catch {
-      // El token no sirve (expiró, revocado). Fase 1 no implementa refresh
-      // automático todavía — se pide login de nuevo.
-      setAccessToken(null);
+      await clearTokens();
       set({ status: "unauthenticated", user: null });
     }
   },
@@ -62,9 +64,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       device_id: deviceId,
       platform: Platform.OS,
     });
-    await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, data.access_token);
-    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, data.refresh_token);
-    setAccessToken(data.access_token);
+    await setTokens(data.access_token, data.refresh_token);
     set({ status: "authenticated", user: data.user });
   },
 
@@ -73,9 +73,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   },
 
   async logout() {
-    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
-    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
-    setAccessToken(null);
+    await clearTokens();
     set({ status: "unauthenticated", user: null });
   },
 }));
