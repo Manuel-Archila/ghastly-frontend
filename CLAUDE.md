@@ -33,7 +33,17 @@ Fase 3: **compromisos**. Puertos de dominio con tests (`amortization.ts`, `insta
 
 Verificado FE↔BE con script de integración: suscripción, plan de cuotas (pagar cuota, pasivo baja), deuda (amortización + pago capital/interés), meta (aporte), y el pull final trae todo.
 
-**Falta:** notificaciones locales (`expo-notifications` — necesita dev build, no Expo Go; bloqueado mientras se use Expo Go). Empatado con el backend hasta Fase 3; sigue Fase 4 (reportes) en ambos.
+**Falta:** notificaciones locales (`expo-notifications` — necesita dev build, no Expo Go; bloqueado mientras se use Expo Go).
+
+**Fase 4 (reportes) en curso** — el backend ya tiene los diez endpoints de `/reports/*`; el frontend arrancó por la pantalla Hoy.
+
+`(tabs)/index.tsx` reescrita contra `GET /reports/dashboard` (antes era un placeholder con patrimonio neto calculado local). Primer uso real de **React Query** en el repo (estaba instalado sin usar — `data/query-client.ts`, `QueryClientProvider` en `app/_layout.tsx`); reportes son de solo lectura contra el servidor, no se replican a SQLite (mismo patrón que `budget/history.tsx`). El bloque de anomalías del wireframe (`PLAN-frontend.md §6.2`) necesita una segunda llamada a `/reports/anomalies` porque `DashboardOut` no las incluye — se resolvió así a propósito en vez de forzarlo en una sola llamada; ambas cacheadas por React Query en `features/reports/useDashboard.ts`.
+
+Primitivas nuevas en `ui/primitives/`: `Card`, `ProgressBar` (la de `budget.tsx` estaba inline, se promovió y `budget.tsx` ahora la reusa), `Skeleton` (con pulso que respeta "Reducir movimiento" — `AccessibilityInfo.isReduceMotionEnabled`). `SegmentedControl` todavía no existe — hace falta para las 4 vistas de `reports/` (Resumen/Categorías/Tendencias/Comparativo), que siguen sin construir.
+
+Simplificaciones deliberadas de esta vuelta: "PRÓXIMOS VENCIMIENTOS" en vez de "PRÓXIMOS 7 DÍAS" (el wireframe lo llama así pero `dashboard.upcoming` es en realidad top-5 de una ventana de 30 días, no estrictamente 7); patrimonio neto y "por cobrar" no se muestran en Hoy (viven en Reportes, por diseño explícito del plan); sin iconos ⚙️/🔔 en el header (no hay pantallas de ajustes/notificaciones todavía); las cuentas que no son tarjeta no son tappable (no existe `accounts/[id]/index` ni `accounts/index` — solo `accounts/[id]/statement.tsx`, que sí se usa para las tarjetas).
+
+Empatado con el backend hasta Fase 3; el backend además ya tiene `receivables`, `transaction_templates`, recibos en S3 y `statement` de tarjeta — sin pantalla en el frontend todavía.
 
 ---
 

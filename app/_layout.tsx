@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { View } from "react-native";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 
 import { useRunMigrations } from "@/data/db/migrate";
+import { queryClient } from "@/data/query-client";
 import { listAccounts } from "@/data/repositories/accounts";
 import { useSessionStore } from "@/features/auth/session-store";
 import { useSyncOnForeground } from "@/features/sync/sync-manager";
@@ -72,5 +74,9 @@ export default function RootLayout() {
     return <View style={{ flex: 1, backgroundColor: colors.bg.base }} />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Stack screenOptions={{ headerShown: false }} />
+    </QueryClientProvider>
+  );
 }

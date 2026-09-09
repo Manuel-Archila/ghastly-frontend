@@ -4,22 +4,16 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { computeBudgetCurrent, type BudgetCurrent } from "@/data/repositories/budgets";
 import { Money } from "@/domain/money";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { Button, ProgressBar, Screen, Text, semaphoreColor } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 function currentMonth(): string {
   return new Date().toISOString().slice(0, 7);
 }
 
-function barColor(percent: number, colors: ReturnType<typeof useTokens>["colors"]): string {
-  if (percent > 100) return colors.danger.fg;
-  if (percent >= 80) return colors.warning.fg;
-  return colors.income.fg;
-}
-
 export default function BudgetScreen() {
   const router = useRouter();
-  const { spacing, colors, radii } = useTokens();
+  const { spacing, colors } = useTokens();
   const [data, setData] = useState<BudgetCurrent | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -79,20 +73,14 @@ export default function BudgetScreen() {
           <View key={item.categoryId} style={{ gap: spacing[1] }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text variant="body">{item.categoryName}</Text>
-              <Text variant="bodyStrong" style={{ color: barColor(item.percentConsumed, colors) }}>
+              <Text
+                variant="bodyStrong"
+                style={{ color: semaphoreColor(item.percentConsumed, colors) }}
+              >
                 {item.percentConsumed}%
               </Text>
             </View>
-            <View style={{ height: 6, backgroundColor: colors.bg.sunken, borderRadius: radii.sm }}>
-              <View
-                style={{
-                  height: 6,
-                  width: `${Math.min(100, item.percentConsumed)}%`,
-                  backgroundColor: barColor(item.percentConsumed, colors),
-                  borderRadius: radii.sm,
-                }}
-              />
-            </View>
+            <ProgressBar percent={item.percentConsumed} />
             <Text variant="caption" color="tertiary">
               {new Money(item.spentCents).format()} / {new Money(item.budgetedCents).format()}
               {item.availableCents >= 0
