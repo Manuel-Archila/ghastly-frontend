@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "948951266894",
+    "project_id": "ghastly-ec668",
+    "storage_bucket": "ghastly-ec668.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:948951266894:android:f6551e9f3fcf5c3dfaf51f",
+        "android_client_info": {
+          "package_name": "com.archi15.ghastly"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDiLxcjFcpce72ScyB4-A-j9r47EbP_SKU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -21,6 +21,7 @@
     "drizzle-orm": "^0.38.4",
     "expo": "~57.0.20",
     "expo-constants": "~57.0.17",
+    "expo-dev-client": "~57.0.19",
     "expo-haptics": "~57.0.2",
     "expo-linking": "~57.0.9",
     "expo-local-authentication": "~17.0.1",

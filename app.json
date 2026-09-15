@@ -12,6 +12,8 @@
       "supportsTablet": false
     },
     "android": {
+      "package": "com.archi15.ghastly",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -36,6 +38,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "88ace463-f270-4be8-b017-462ea57d31b1"
+      }
+    },
+    "owner": "archi15"
   }
 }
