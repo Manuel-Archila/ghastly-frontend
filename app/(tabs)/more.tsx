@@ -58,6 +58,7 @@ export default function MoreScreen() {
             summary: `${goals.filter((g) => g.status === "active").length} en progreso`,
           },
           { label: "📅 Calendario", href: "/calendar", summary: "" },
+          { label: "🔔 Notificaciones", href: "/settings/notifications", summary: "" },
         ]);
       })();
     }, []),
