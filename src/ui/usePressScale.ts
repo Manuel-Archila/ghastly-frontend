@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-import { AccessibilityInfo, Animated, Pressable } from "react-native";
-
-/** Único `Animated.createAnimatedComponent` de `Pressable` para toda la
- * app — evita crear un componente nuevo en cada render de cada primitiva. */
-export const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+import { AccessibilityInfo, Animated } from "react-native";
 
 /**
  * Feedback de presión compartido por `Button` y `Chip`: achica levemente

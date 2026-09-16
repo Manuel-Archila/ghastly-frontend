@@ -1,8 +1,8 @@
-import { type PressableProps, type PressableStateCallbackType, type ViewStyle } from "react-native";
+import { Animated, Pressable, type PressableProps, type PressableStateCallbackType, type ViewStyle } from "react-native";
 
 import { Text } from "@/ui/primitives/Text";
 import { useTokens } from "@/ui/tokens";
-import { AnimatedPressable, usePressScale } from "@/ui/usePressScale";
+import { usePressScale } from "@/ui/usePressScale";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -14,7 +14,13 @@ export interface ButtonProps extends PressableProps {
 
 /** Área táctil mínima 48×48 siempre, aunque el contenido sea más chico
  * (PLAN-frontend §4.4/§8) — se garantiza con `minHeight`, no a discreción
- * de cada pantalla. */
+ * de cada pantalla.
+ *
+ * OJO: `Pressable` (no `Animated.createAnimatedComponent(Pressable)`) —
+ * `Animated.createAnimatedComponent` no soporta el `style` como función
+ * de `state` que usa Pressable para pintar `pressed`; envolverlo rompía
+ * TODO el estilo condicional (fondo, texto, disabled). La escala animada
+ * va en un `Animated.View` interno, no en el propio Pressable. */
 export function Button({
   label,
   variant = "primary",
@@ -53,29 +59,30 @@ export function Button({
   };
 
   return (
-    <AnimatedPressable
+    <Pressable
       accessibilityRole="button"
       accessibilityState={{ disabled: Boolean(disabled) }}
       disabled={disabled}
-      onPressIn={(e: Parameters<NonNullable<PressableProps["onPressIn"]>>[0]) => {
+      onPressIn={(e) => {
         animateIn();
         onPressIn?.(e);
       }}
-      onPressOut={(e: Parameters<NonNullable<PressableProps["onPressOut"]>>[0]) => {
+      onPressOut={(e) => {
         animateOut();
         onPressOut?.(e);
       }}
       style={(state: PressableStateCallbackType) => [
         baseStyle,
-        { transform: [{ scale }] },
         typeof style === "function" ? style(state) : style,
         state.pressed && { opacity: 0.85 },
       ]}
       {...props}
     >
-      <Text variant="bodyStrong" style={{ color: textColors[variant] }}>
-        {label}
-      </Text>
-    </AnimatedPressable>
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Text variant="bodyStrong" style={{ color: textColors[variant] }}>
+          {label}
+        </Text>
+      </Animated.View>
+    </Pressable>
   );
 }

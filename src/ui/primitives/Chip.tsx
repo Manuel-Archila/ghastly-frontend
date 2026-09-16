@@ -1,27 +1,31 @@
-import type { PressableProps, PressableStateCallbackType } from "react-native";
+import { Animated, Pressable, type PressableProps, type PressableStateCallbackType } from "react-native";
 
 import { Text } from "@/ui/primitives/Text";
 import { useTokens } from "@/ui/tokens";
-import { AnimatedPressable, usePressScale } from "@/ui/usePressScale";
+import { usePressScale } from "@/ui/usePressScale";
 
 export interface ChipProps extends PressableProps {
   label: string;
   selected?: boolean;
 }
 
+/** `Pressable` normal, no `Animated.createAnimatedComponent(Pressable)` —
+ * ver la nota en `Button.tsx`: rompe el `style` como función de `state`
+ * que necesitamos para pintar `selected`/`pressed`. La escala animada va
+ * en un `Animated.View` interno. */
 export function Chip({ label, selected = false, style, onPressIn, onPressOut, ...props }: ChipProps) {
   const { colors, spacing, radii, minTouchTarget } = useTokens();
   const { scale, onPressIn: animateIn, onPressOut: animateOut } = usePressScale();
 
   return (
-    <AnimatedPressable
+    <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      onPressIn={(e: Parameters<NonNullable<PressableProps["onPressIn"]>>[0]) => {
+      onPressIn={(e) => {
         animateIn();
         onPressIn?.(e);
       }}
-      onPressOut={(e: Parameters<NonNullable<PressableProps["onPressOut"]>>[0]) => {
+      onPressOut={(e) => {
         animateOut();
         onPressOut?.(e);
       }}
@@ -35,15 +39,16 @@ export function Chip({ label, selected = false, style, onPressIn, onPressOut, ..
           borderColor: selected ? colors.accent.bg : colors.border.subtle,
           backgroundColor: selected ? colors.accent.bg : colors.bg.surface,
           opacity: state.pressed ? 0.85 : 1,
-          transform: [{ scale }],
         },
         typeof style === "function" ? style(state) : style,
       ]}
       {...props}
     >
-      <Text variant="body" style={{ color: selected ? colors.accent.fg : colors.text.primary }}>
-        {label}
-      </Text>
-    </AnimatedPressable>
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Text variant="body" style={{ color: selected ? colors.accent.fg : colors.text.primary }}>
+          {label}
+        </Text>
+      </Animated.View>
+    </Pressable>
   );
 }
