@@ -3,6 +3,7 @@ import { and, desc, eq, gte, isNull, like, lte, or, sql } from "drizzle-orm";
 import { db } from "@/data/db/client";
 import { accounts, categories, outboxMutations, transactions } from "@/data/db/schema";
 import { signedDelta, type AccountType } from "@/domain/balances";
+import { Money } from "@/domain/money";
 import { uuidv7 } from "@/lib/uuid";
 
 export type Transaction = typeof transactions.$inferSelect;
@@ -19,6 +20,13 @@ export interface CreateTransactionInput {
   amountCents: number;
   date: string; // YYYY-MM-DD
   description?: string | null;
+  /** Sigue la moneda de la cuenta elegida — no es un campo libre en la UI
+   * (evitamos el caso raro, que el backend permite pero rompería el saldo
+   * de la cuenta, de una transacción en otra moneda que la de su cuenta). */
+  currency?: string;
+  /** Requerida por el backend si `currency` no es GTQ (caso 4) — se congela,
+   * nunca se recalcula. */
+  fxRate?: number;
 }
 
 async function applyBalanceDelta(
@@ -49,6 +57,15 @@ async function applyBalanceDelta(
 export async function createTransactionLocally(input: CreateTransactionInput): Promise<string> {
   const id = uuidv7();
   const now = new Date().toISOString();
+  const currency = input.currency ?? "GTQ";
+  // Optimista: el servidor es quien de verdad congela esto (caso 4), pero
+  // calculamos ya mismo con la misma tasa para que el presupuesto/dashboard
+  // LOCAL (domain/budget.ts vía repositories/budgets.ts) no muestren mal
+  // hasta el próximo sync — mismo criterio que el saldo optimista de abajo.
+  const baseAmountCents =
+    currency !== "GTQ" && input.fxRate
+      ? new Money(input.amountCents, currency).convert(input.fxRate, "GTQ").cents
+      : null;
 
   await db.transaction(async (tx) => {
     await tx.insert(transactions).values({
@@ -57,7 +74,9 @@ export async function createTransactionLocally(input: CreateTransactionInput): P
       categoryId: input.categoryId,
       kind: input.kind,
       amountCents: input.amountCents,
-      currency: "GTQ",
+      currency,
+      fxRate: input.fxRate ?? null,
+      baseAmountCents,
       date: input.date,
       description: input.description ?? null,
       tags: [],
@@ -76,7 +95,8 @@ export async function createTransactionLocally(input: CreateTransactionInput): P
         category_id: input.categoryId,
         kind: input.kind,
         amount_cents: input.amountCents,
-        currency: "GTQ",
+        currency,
+        fx_rate: input.fxRate ?? undefined,
         date: input.date,
         description: input.description ?? null,
       },

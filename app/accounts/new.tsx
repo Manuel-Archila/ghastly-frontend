@@ -16,12 +16,15 @@ const TYPES: { value: string; label: string }[] = [
   { value: "digital_wallet", label: "Billetera" },
 ];
 
+const CURRENCIES = ["GTQ", "USD"];
+
 export default function NewAccountScreen() {
   const router = useRouter();
   const { spacing } = useTokens();
 
   const [name, setName] = useState("");
   const [type, setType] = useState("checking");
+  const [currency, setCurrency] = useState("GTQ");
   const [balance, setBalance] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -31,6 +34,7 @@ export default function NewAccountScreen() {
     await createAccountLocally({
       name: name.trim(),
       type,
+      currency,
       initialBalanceCents: parseCentsFromInput(balance) ?? 0,
     });
     triggerSync();
@@ -58,8 +62,19 @@ export default function NewAccountScreen() {
         </View>
       </View>
 
+      <View style={{ gap: spacing[2] }}>
+        <Text variant="caption" color="secondary">
+          Moneda
+        </Text>
+        <View style={{ flexDirection: "row", gap: spacing[2] }}>
+          {CURRENCIES.map((c) => (
+            <Chip key={c} label={c} selected={currency === c} onPress={() => setCurrency(c)} />
+          ))}
+        </View>
+      </View>
+
       <Input
-        label="Saldo actual"
+        label={`Saldo actual (${currency})`}
         value={balance}
         onChangeText={setBalance}
         keyboardType="decimal-pad"

@@ -24,6 +24,7 @@ export default function NewSubscriptionScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [fxRate, setFxRate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -37,9 +38,15 @@ export default function NewSubscriptionScreen() {
   }, []);
 
   const cents = parseCentsFromInput(amount);
+  // Sigue la moneda de la cuenta elegida — no es un campo libre (mismo
+  // criterio que la captura rápida).
+  const currency = accounts.find((a) => a.id === accountId)?.currency ?? "GTQ";
+  const needsFxRate = currency !== "GTQ";
+  const parsedFxRate = Number(fxRate.replace(",", "."));
+  const fxRateValid = !needsFxRate || (parsedFxRate > 0 && !Number.isNaN(parsedFxRate));
 
   async function onSave() {
-    if (!name.trim() || cents === null || !accountId) return;
+    if (!name.trim() || cents === null || !accountId || !fxRateValid) return;
     setBusy(true);
     setError(null);
     try {
@@ -49,6 +56,8 @@ export default function NewSubscriptionScreen() {
         kind: "expense",
         name: name.trim(),
         amountCents: cents,
+        currency,
+        fxRate: needsFxRate ? parsedFxRate : undefined,
         frequency,
         nextDueDate: todayIso(),
         autoCreate: false,
@@ -107,6 +116,16 @@ export default function NewSubscriptionScreen() {
           </View>
         )}
 
+        {needsFxRate ? (
+          <Input
+            label={`Tasa de cambio (1 ${currency} = ? GTQ)`}
+            value={fxRate}
+            onChangeText={setFxRate}
+            keyboardType="decimal-pad"
+            placeholder="7.75"
+          />
+        ) : null}
+
         {categories.length > 0 ? (
           <View style={{ gap: spacing[2] }}>
             <Text variant="caption" color="secondary">
@@ -134,7 +153,7 @@ export default function NewSubscriptionScreen() {
         <Button
           label={busy ? "Guardando…" : "Guardar"}
           onPress={onSave}
-          disabled={busy || !name.trim() || cents === null || !accountId}
+          disabled={busy || !name.trim() || cents === null || !accountId || !fxRateValid}
         />
       </ScrollView>
     </Screen>

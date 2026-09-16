@@ -34,9 +34,18 @@ export default function QuickAddScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [fxRate, setFxRate] = useState("");
   const [warning, setWarning] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resetKey, setResetKey] = useState(0);
+
+  // La transacción sigue SIEMPRE la moneda de la cuenta elegida — no es un
+  // campo libre (evita el caso raro, que el backend permite pero rompería
+  // el saldo de la cuenta, de mezclar monedas entre cuenta y transacción).
+  const selectedAccount = accounts.find((a) => a.id === accountId);
+  const currency = selectedAccount?.currency ?? "GTQ";
+  const needsFxRate = currency !== "GTQ";
+  const parsedFxRate = Number(fxRate.replace(",", "."));
 
   useEffect(() => {
     let cancelled = false;
@@ -51,7 +60,11 @@ export default function QuickAddScreen() {
     };
   }, []);
 
-  const canSave = cents > 0 && accountId !== null && !busy;
+  const canSave =
+    cents > 0 &&
+    accountId !== null &&
+    !busy &&
+    (!needsFxRate || (parsedFxRate > 0 && !Number.isNaN(parsedFxRate)));
 
   async function save(): Promise<boolean> {
     if (cents <= 0 || accountId === null) return false;
@@ -66,6 +79,8 @@ export default function QuickAddScreen() {
       amountCents: cents,
       date: today(),
       description: description.trim() || null,
+      currency,
+      fxRate: needsFxRate ? parsedFxRate : undefined,
     });
     triggerSync();
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -87,6 +102,7 @@ export default function QuickAddScreen() {
     if (await save()) {
       setCents(0);
       setDescription("");
+      setFxRate("");
       setResetKey((k) => k + 1);
     }
   }
@@ -110,7 +126,7 @@ export default function QuickAddScreen() {
             variant="display"
             style={{ color: kind === "expense" ? colors.expense.fg : colors.income.fg }}
           >
-            {new Money(Math.abs(cents)).format()}
+            {new Money(Math.abs(cents), currency).format()}
           </Text>
         </View>
 
@@ -143,6 +159,16 @@ export default function QuickAddScreen() {
             Primero creá una cuenta desde la pestaña Hoy.
           </Text>
         )}
+
+        {needsFxRate ? (
+          <Input
+            label={`Tasa de cambio (1 ${currency} = ? GTQ)`}
+            value={fxRate}
+            onChangeText={setFxRate}
+            keyboardType="decimal-pad"
+            placeholder="7.75"
+          />
+        ) : null}
 
         <Input
           label="Descripción (opcional)"

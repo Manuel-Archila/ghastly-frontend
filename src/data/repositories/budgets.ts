@@ -183,8 +183,14 @@ async function spentByCategory(start: string, end: string): Promise<Map<string, 
       categoryId: transactions.categoryId,
       // Gastos suman; reembolsos (income con refund_of_id) restan de su
       // categoría original — caso 5. Las transferencias nunca entran (regla 1).
+      // `base_amount_cents` (caso 4) es el equivalente en GTQ ya congelado
+      // por el servidor — coalesce a `amount_cents` porque en GTQ vale lo
+      // mismo (espejo de la misma expresión en budget_service.py del backend).
       total: sql<number>`sum(case when ${transactions.refundOfId} is not null
-        then -${transactions.amountCents} else ${transactions.amountCents} end)`.as("total"),
+        then -coalesce(${transactions.baseAmountCents}, ${transactions.amountCents})
+        else coalesce(${transactions.baseAmountCents}, ${transactions.amountCents}) end)`.as(
+        "total",
+      ),
     })
     .from(transactions)
     .where(

@@ -24,6 +24,12 @@ export interface RecurringRuleInput {
   nextDueDate: string;
   autoCreate: boolean;
   reminderDaysBefore: number;
+  /** Sigue la moneda de la cuenta elegida (igual que una transacción). */
+  currency?: string;
+  /** Requerida por el backend si `currency` no es GTQ — se congela una
+   * sola vez al crear la regla (caso 4), no hay de dónde refrescarla al
+   * auto-generar. */
+  fxRate?: number;
 }
 
 export function createRecurringRule(input: RecurringRuleInput) {
@@ -34,6 +40,8 @@ export function createRecurringRule(input: RecurringRuleInput) {
     kind: input.kind,
     name: input.name,
     amount_cents: input.amountCents,
+    currency: input.currency,
+    fx_rate: input.fxRate,
     frequency: input.frequency,
     next_due_date: input.nextDueDate,
     auto_create: input.autoCreate,

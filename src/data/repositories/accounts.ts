@@ -10,19 +10,21 @@ export interface CreateAccountInput {
   name: string;
   type: string;
   initialBalanceCents: number;
+  currency?: string;
 }
 
 /** Escribe local + encola en el outbox, en una transacción de DB. */
 export async function createAccountLocally(input: CreateAccountInput): Promise<string> {
   const id = uuidv7();
   const now = new Date().toISOString();
+  const currency = input.currency ?? "GTQ";
 
   await db.transaction(async (tx) => {
     await tx.insert(accounts).values({
       id,
       name: input.name,
       type: input.type,
-      currency: "GTQ",
+      currency,
       initialBalanceCents: input.initialBalanceCents,
       currentBalanceCents: input.initialBalanceCents,
       createdAt: now,
@@ -37,7 +39,7 @@ export async function createAccountLocally(input: CreateAccountInput): Promise<s
         id,
         name: input.name,
         type: input.type,
-        currency: "GTQ",
+        currency,
         initial_balance_cents: input.initialBalanceCents,
       },
       clientUpdatedAt: now,
