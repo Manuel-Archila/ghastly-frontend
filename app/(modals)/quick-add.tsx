@@ -9,7 +9,7 @@ import {
   createTransactionLocally,
   findPossibleDuplicate,
 } from "@/data/repositories/transactions";
-import { Money } from "@/domain/money";
+import { Money, parseCentsFromInput } from "@/domain/money";
 import { triggerSync } from "@/features/sync/sync-manager";
 import { Button, Chip, Input, KeypadNumeric, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
@@ -34,7 +34,7 @@ export default function QuickAddScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [fxRate, setFxRate] = useState("");
+  const [chargedGtq, setChargedGtq] = useState("");
   const [warning, setWarning] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resetKey, setResetKey] = useState(0);
@@ -45,7 +45,12 @@ export default function QuickAddScreen() {
   const selectedAccount = accounts.find((a) => a.id === accountId);
   const currency = selectedAccount?.currency ?? "GTQ";
   const needsFxRate = currency !== "GTQ";
-  const parsedFxRate = Number(fxRate.replace(",", "."));
+  // No le pedimos "la tasa de hoy" — nadie la sabe de memoria. Le pedimos lo
+  // que SÍ ve (cuánto le debitaron en quetzales, del banco/tarjeta) y de ahí
+  // sacamos la tasa nosotros: fx_rate = GTQ debitado / monto en la moneda
+  // extranjera. Matemáticamente da exactamente lo mismo.
+  const chargedGtqCents = parseCentsFromInput(chargedGtq);
+  const fxRate = chargedGtqCents !== null && cents > 0 ? chargedGtqCents / cents : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -60,11 +65,7 @@ export default function QuickAddScreen() {
     };
   }, []);
 
-  const canSave =
-    cents > 0 &&
-    accountId !== null &&
-    !busy &&
-    (!needsFxRate || (parsedFxRate > 0 && !Number.isNaN(parsedFxRate)));
+  const canSave = cents > 0 && accountId !== null && !busy && (!needsFxRate || fxRate !== null);
 
   async function save(): Promise<boolean> {
     if (cents <= 0 || accountId === null) return false;
@@ -80,7 +81,7 @@ export default function QuickAddScreen() {
       date: today(),
       description: description.trim() || null,
       currency,
-      fxRate: needsFxRate ? parsedFxRate : undefined,
+      fxRate: needsFxRate && fxRate !== null ? fxRate : undefined,
     });
     triggerSync();
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -102,7 +103,7 @@ export default function QuickAddScreen() {
     if (await save()) {
       setCents(0);
       setDescription("");
-      setFxRate("");
+      setChargedGtq("");
       setResetKey((k) => k + 1);
     }
   }
@@ -162,11 +163,11 @@ export default function QuickAddScreen() {
 
         {needsFxRate ? (
           <Input
-            label={`Tasa de cambio (1 ${currency} = ? GTQ)`}
-            value={fxRate}
-            onChangeText={setFxRate}
+            label="¿Cuánto te debitaron en quetzales? (del banco o la tarjeta)"
+            value={chargedGtq}
+            onChangeText={setChargedGtq}
             keyboardType="decimal-pad"
-            placeholder="7.75"
+            placeholder="0.00"
           />
         ) : null}
 

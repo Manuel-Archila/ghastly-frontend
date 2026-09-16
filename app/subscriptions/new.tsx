@@ -24,7 +24,7 @@ export default function NewSubscriptionScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [fxRate, setFxRate] = useState("");
+  const [chargedGtq, setChargedGtq] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -42,8 +42,14 @@ export default function NewSubscriptionScreen() {
   // criterio que la captura rápida).
   const currency = accounts.find((a) => a.id === accountId)?.currency ?? "GTQ";
   const needsFxRate = currency !== "GTQ";
-  const parsedFxRate = Number(fxRate.replace(",", "."));
-  const fxRateValid = !needsFxRate || (parsedFxRate > 0 && !Number.isNaN(parsedFxRate));
+  // No pedimos "la tasa de hoy" — se pide lo que el usuario ya vio en su
+  // último cobro (banco/tarjeta) y de ahí se calcula la tasa (mismo
+  // criterio que la captura rápida, ver quick-add.tsx).
+  const chargedGtqCents = parseCentsFromInput(chargedGtq);
+  const fxRate = chargedGtqCents !== null && cents !== null && cents > 0
+    ? chargedGtqCents / cents
+    : null;
+  const fxRateValid = !needsFxRate || fxRate !== null;
 
   async function onSave() {
     if (!name.trim() || cents === null || !accountId || !fxRateValid) return;
@@ -57,7 +63,7 @@ export default function NewSubscriptionScreen() {
         name: name.trim(),
         amountCents: cents,
         currency,
-        fxRate: needsFxRate ? parsedFxRate : undefined,
+        fxRate: needsFxRate && fxRate !== null ? fxRate : undefined,
         frequency,
         nextDueDate: todayIso(),
         autoCreate: false,
@@ -118,11 +124,11 @@ export default function NewSubscriptionScreen() {
 
         {needsFxRate ? (
           <Input
-            label={`Tasa de cambio (1 ${currency} = ? GTQ)`}
-            value={fxRate}
-            onChangeText={setFxRate}
+            label="¿Cuánto te cobraron en quetzales la última vez? (banco o tarjeta)"
+            value={chargedGtq}
+            onChangeText={setChargedGtq}
             keyboardType="decimal-pad"
-            placeholder="7.75"
+            placeholder="0.00"
           />
         ) : null}
 
