@@ -61,3 +61,12 @@ export async function getAccount(id: string): Promise<Account | undefined> {
   const rows = await db.select().from(accounts).where(eq(accounts.id, id)).limit(1);
   return rows[0];
 }
+
+/** El servidor ya archivó la cuenta (ver `data/api/accounts.ts::deleteAccount`)
+ * — esto solo refleja eso local para que la UI no espere al próximo pull. */
+export async function markAccountArchivedLocally(id: string): Promise<void> {
+  await db
+    .update(accounts)
+    .set({ isArchived: true, updatedAt: new Date().toISOString() })
+    .where(eq(accounts.id, id));
+}

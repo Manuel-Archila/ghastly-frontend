@@ -12,6 +12,7 @@ import { computeCurrentCycle } from "@/domain/creditCycle";
 import { Money, formatForKind } from "@/domain/money";
 import { useDashboard } from "@/features/reports/useDashboard";
 import { clampDay, daysBetween, todayIso } from "@/lib/dates";
+import { getHiddenAccountIds } from "@/lib/hiddenAccounts";
 import { Button, Card, FadeIn, Icon, ProgressBar, Screen, Skeleton, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
@@ -72,8 +73,12 @@ export default function TodayScreen() {
   const [syncing, setSyncing] = useState(false);
 
   const loadLocal = useCallback(async () => {
-    const [accs, count] = await Promise.all([listAccounts(), countPendingOutbox()]);
-    setAccounts(accs);
+    const [accs, count, hiddenIds] = await Promise.all([
+      listAccounts(),
+      countPendingOutbox(),
+      getHiddenAccountIds(),
+    ]);
+    setAccounts(accs.filter((a) => !hiddenIds.has(a.id)));
     setPending(count);
   }, []);
 
@@ -176,20 +181,22 @@ export default function TodayScreen() {
           </Card>
         </View>
 
-        <View style={{ gap: spacing[2] }}>
-          <Text variant="caption" color="secondary">
-            CUENTAS
-          </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={{ flexDirection: "row", gap: spacing[3] }}>
-              {accounts.map((a, index) => (
-                <FadeIn key={a.id} delay={index * 40}>
-                  <AccountCard account={a} />
-                </FadeIn>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
+        {accounts.length > 0 ? (
+          <View style={{ gap: spacing[2] }}>
+            <Text variant="caption" color="secondary">
+              CUENTAS
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: "row", gap: spacing[3] }}>
+                {accounts.map((a, index) => (
+                  <FadeIn key={a.id} delay={index * 40}>
+                    <AccountCard account={a} />
+                  </FadeIn>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        ) : null}
 
         {upcoming.length > 0 ? (
           <View style={{ gap: spacing[2] }}>

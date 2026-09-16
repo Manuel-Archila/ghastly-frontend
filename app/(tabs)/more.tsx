@@ -44,7 +44,7 @@ export default function MoreScreen() {
           {
             icon: "wallet-outline",
             label: "Cuentas",
-            href: "/accounts/new",
+            href: "/accounts",
             summary: `${accounts.length}`,
           },
           {
