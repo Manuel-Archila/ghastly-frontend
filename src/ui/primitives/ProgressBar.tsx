@@ -1,4 +1,5 @@
-import { View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, Animated, View } from "react-native";
 
 import { useTokens } from "@/ui/tokens";
 
@@ -12,11 +13,32 @@ export interface ProgressBarProps {
   height?: number;
 }
 
+const clamp = (percent: number) => Math.min(100, Math.max(0, percent));
+
 /** Única barra de progreso de la app (antes vivía inline en cada pantalla
- * que la necesitaba, ver CLAUDE.md: cero literales de estilo repetidos). */
+ * que la necesitaba, ver CLAUDE.md: cero literales de estilo repetidos). El
+ * relleno anima al cambiar `percent`, respetando "Reducir movimiento" (si
+ * está activo, salta directo al valor final, sin transición). */
 export function ProgressBar({ percent, color, height = 6 }: ProgressBarProps) {
   const { colors, radii } = useTokens();
   const fillColor = color ?? semaphoreColor(percent, colors);
+  const [width] = useState(() => new Animated.Value(0));
+  const didMount = useRef(false);
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then((reduceMotion) => {
+      if (reduceMotion || !didMount.current) {
+        width.setValue(clamp(percent));
+        didMount.current = true;
+        return;
+      }
+      Animated.timing(width, {
+        toValue: clamp(percent),
+        duration: 400,
+        useNativeDriver: false,
+      }).start();
+    });
+  }, [percent, width]);
 
   return (
     <View
@@ -24,10 +46,10 @@ export function ProgressBar({ percent, color, height = 6 }: ProgressBarProps) {
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: 100, now: Math.round(percent) }}
     >
-      <View
+      <Animated.View
         style={{
           height,
-          width: `${Math.min(100, Math.max(0, percent))}%`,
+          width: width.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }),
           backgroundColor: fillColor,
           borderRadius: radii.sm,
         }}

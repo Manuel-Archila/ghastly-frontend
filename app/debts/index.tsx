@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { listDebts, type Debt } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { Button, FadeIn, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function DebtsScreen() {
@@ -34,25 +34,30 @@ export default function DebtsScreen() {
         </View>
         <Button label="Nueva deuda" onPress={() => router.push("/debts/new")} />
 
-        {debts.map((d) => (
-          <Pressable
-            key={d.id}
-            onPress={() => router.push(`/debts/${d.id}`)}
-            style={{
-              paddingVertical: spacing[2],
-              borderBottomWidth: 1,
-              borderBottomColor: colors.border.subtle,
-            }}
-          >
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text variant="body">{d.name}</Text>
-              <Text variant="bodyStrong">{new Money(d.balanceCents).format()}</Text>
-            </View>
-            <Text variant="caption" color="tertiary">
-              de {new Money(d.principalCents).format()} · {(d.monthlyInterestRate * 100).toFixed(2)}%/mes
-              {d.status === "paid_off" ? " · pagada ✓" : ""}
-            </Text>
-          </Pressable>
+        {debts.map((d, index) => (
+          <FadeIn key={d.id} delay={index * 30}>
+            <Pressable
+              onPress={() => router.push(`/debts/${d.id}`)}
+              style={(state) => [
+                {
+                  paddingVertical: spacing[2],
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.border.subtle,
+                  opacity: state.pressed ? 0.6 : 1,
+                },
+              ]}
+            >
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text variant="body">{d.name}</Text>
+                <Text variant="bodyStrong">{new Money(d.balanceCents).format()}</Text>
+              </View>
+              <Text variant="caption" color="tertiary">
+                de {new Money(d.principalCents).format()} ·{" "}
+                {(d.monthlyInterestRate * 100).toFixed(2)}%/mes
+                {d.status === "paid_off" ? " · pagada ✓" : ""}
+              </Text>
+            </Pressable>
+          </FadeIn>
         ))}
 
         {debts.length === 0 ? (

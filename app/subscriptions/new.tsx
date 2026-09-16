@@ -85,16 +85,27 @@ export default function NewSubscriptionScreen() {
           </View>
         </View>
 
-        <View style={{ gap: spacing[2] }}>
-          <Text variant="caption" color="secondary">
-            Cuenta
+        {accounts.length === 0 ? (
+          <Text variant="body" color="secondary">
+            Necesitás una cuenta primero. Creá una desde &ldquo;Más&rdquo;.
           </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-            {accounts.map((a) => (
-              <Chip key={a.id} label={a.name} selected={accountId === a.id} onPress={() => setAccountId(a.id)} />
-            ))}
+        ) : (
+          <View style={{ gap: spacing[2] }}>
+            <Text variant="caption" color="secondary">
+              Cuenta
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
+              {accounts.map((a) => (
+                <Chip
+                  key={a.id}
+                  label={a.name}
+                  selected={accountId === a.id}
+                  onPress={() => setAccountId(a.id)}
+                />
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
         {categories.length > 0 ? (
           <View style={{ gap: spacing[2] }}>
@@ -123,7 +134,7 @@ export default function NewSubscriptionScreen() {
         <Button
           label={busy ? "Guardando…" : "Guardar"}
           onPress={onSave}
-          disabled={busy || !name.trim() || cents === null}
+          disabled={busy || !name.trim() || cents === null || !accountId}
         />
       </ScrollView>
     </Screen>

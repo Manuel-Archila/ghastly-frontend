@@ -2,10 +2,12 @@ import { useCallback, useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 
+import type { Ionicons } from "@expo/vector-icons";
+
 import { computeUpcoming, type CommitmentEvent } from "@/features/calendar/upcoming";
 import { Money } from "@/domain/money";
 import { daysBetween, todayIso } from "@/lib/dates";
-import { Screen, Text } from "@/ui/primitives";
+import { FadeIn, Icon, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 const WEEKDAYS = ["D", "L", "M", "M", "J", "V", "S"];
@@ -14,11 +16,11 @@ const MONTHS = [
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ];
 
-const DOT_ICON: Record<CommitmentEvent["kind"], string> = {
-  recurring: "🔁",
-  installment: "📱",
-  card_statement: "💳",
-  card_payment: "💳",
+const DOT_ICON: Record<CommitmentEvent["kind"], keyof typeof Ionicons.glyphMap> = {
+  recurring: "repeat-outline",
+  installment: "layers-outline",
+  card_statement: "card-outline",
+  card_payment: "card-outline",
 };
 
 function dotColor(
@@ -212,23 +214,26 @@ export default function CalendarScreen() {
               </Text>
             ) : (
               selectedEvents.map((e, i) => (
-                <View
-                  key={i}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    paddingVertical: spacing[2],
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.border.subtle,
-                  }}
-                >
-                  <Text variant="body">
-                    {DOT_ICON[e.kind]} {e.label}
-                  </Text>
-                  {e.amountCents !== null ? (
-                    <Text variant="bodyStrong">{new Money(e.amountCents).format()}</Text>
-                  ) : null}
-                </View>
+                <FadeIn key={i} delay={i * 30}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      paddingVertical: spacing[2],
+                      borderBottomWidth: 1,
+                      borderBottomColor: colors.border.subtle,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[2] }}>
+                      <Icon name={DOT_ICON[e.kind]} size={18} />
+                      <Text variant="body">{e.label}</Text>
+                    </View>
+                    {e.amountCents !== null ? (
+                      <Text variant="bodyStrong">{new Money(e.amountCents).format()}</Text>
+                    ) : null}
+                  </View>
+                </FadeIn>
               ))
             )}
           </View>

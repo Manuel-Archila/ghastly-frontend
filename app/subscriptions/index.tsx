@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { computeSubscriptionSummary, type SubscriptionSummary } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { Button, FadeIn, Icon, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function SubscriptionsScreen() {
@@ -34,29 +34,34 @@ export default function SubscriptionsScreen() {
 
         <Button label="Nueva suscripción" onPress={() => router.push("/subscriptions/new")} />
 
-        {summary?.items.map(({ rule, monthlyEquivalentCents, priceIncreased }) => (
-          <View
-            key={rule.id}
-            style={{
-              gap: 2,
-              paddingVertical: spacing[2],
-              borderBottomWidth: 1,
-              borderBottomColor: colors.border.subtle,
-            }}
-          >
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text variant="body">{rule.name}</Text>
-              <Text variant="bodyStrong">{new Money(rule.amountCents).format()}</Text>
-            </View>
-            <Text variant="caption" color="tertiary">
-              {rule.frequency} · {new Money(monthlyEquivalentCents).format()}/mes · próximo {rule.nextDueDate}
-            </Text>
-            {priceIncreased ? (
-              <Text variant="caption" style={{ color: colors.warning.fg }}>
-                ⚠️ subió de precio
+        {summary?.items.map(({ rule, monthlyEquivalentCents, priceIncreased }, index) => (
+          <FadeIn key={rule.id} delay={index * 30}>
+            <View
+              style={{
+                gap: 2,
+                paddingVertical: spacing[2],
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border.subtle,
+              }}
+            >
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text variant="body">{rule.name}</Text>
+                <Text variant="bodyStrong">{new Money(rule.amountCents).format()}</Text>
+              </View>
+              <Text variant="caption" color="tertiary">
+                {rule.frequency} · {new Money(monthlyEquivalentCents).format()}/mes · próximo{" "}
+                {rule.nextDueDate}
               </Text>
-            ) : null}
-          </View>
+              {priceIncreased ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[1] }}>
+                  <Icon name="warning-outline" size={14} color={colors.warning.fg} />
+                  <Text variant="caption" style={{ color: colors.warning.fg }}>
+                    subió de precio
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          </FadeIn>
         ))}
 
         {summary && summary.items.length === 0 ? (

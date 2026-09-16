@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
+import type { Ionicons } from "@expo/vector-icons";
 
 import {
   computeInstallmentCommitment,
@@ -8,12 +9,14 @@ import {
   listDebts,
   listGoals,
 } from "@/data/repositories/commitments";
+import { listAccounts } from "@/data/repositories/accounts";
 import { useSessionStore } from "@/features/auth/session-store";
 import { Money } from "@/domain/money";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { Button, FadeIn, Icon, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 interface RowSpec {
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   href: Href;
   summary: string;
@@ -30,35 +33,51 @@ export default function MoreScreen() {
   useFocusEffect(
     useCallback(() => {
       void (async () => {
-        const [subs, inst, debts, goals] = await Promise.all([
+        const [subs, inst, debts, goals, accounts] = await Promise.all([
           computeSubscriptionSummary(),
           computeInstallmentCommitment(),
           listDebts(),
           listGoals(),
+          listAccounts(),
         ]);
         setRows([
           {
-            label: "🔁 Suscripciones",
+            icon: "wallet-outline",
+            label: "Cuentas",
+            href: "/accounts/new",
+            summary: `${accounts.length}`,
+          },
+          {
+            icon: "repeat-outline",
+            label: "Suscripciones",
             href: "/subscriptions",
             summary: `${new Money(subs.totalMonthlyCents).format()}/mes`,
           },
           {
-            label: "📱 Cuotas",
+            icon: "layers-outline",
+            label: "Cuotas",
             href: "/installments",
             summary: `${new Money(inst.totalLiabilityCents).format()} pendiente`,
           },
           {
-            label: "💰 Deudas",
+            icon: "trending-down-outline",
+            label: "Deudas",
             href: "/debts",
             summary: new Money(debts.reduce((s, d) => s + d.balanceCents, 0)).format(),
           },
           {
-            label: "🎯 Metas",
+            icon: "flag-outline",
+            label: "Metas",
             href: "/goals",
             summary: `${goals.filter((g) => g.status === "active").length} en progreso`,
           },
-          { label: "📅 Calendario", href: "/calendar", summary: "" },
-          { label: "🔔 Notificaciones", href: "/settings/notifications", summary: "" },
+          { icon: "calendar-outline", label: "Calendario", href: "/calendar", summary: "" },
+          {
+            icon: "notifications-outline",
+            label: "Notificaciones",
+            href: "/settings/notifications",
+            summary: "",
+          },
         ]);
       })();
     }, []),
@@ -75,24 +94,31 @@ export default function MoreScreen() {
         ) : null}
 
         <View>
-          {rows.map((row) => (
-            <Pressable
-              key={row.label}
-              onPress={() => router.push(row.href)}
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                paddingVertical: spacing[3],
-                borderBottomWidth: 1,
-                borderBottomColor: colors.border.subtle,
-              }}
-            >
-              <Text variant="body">{row.label}</Text>
-              <Text variant="caption" color="tertiary">
-                {row.summary} ›
-              </Text>
-            </Pressable>
+          {rows.map((row, index) => (
+            <FadeIn key={row.label} delay={index * 30}>
+              <Pressable
+                onPress={() => router.push(row.href)}
+                style={(state) => [
+                  {
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing[3],
+                    paddingVertical: spacing[3],
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.border.subtle,
+                    opacity: state.pressed ? 0.6 : 1,
+                  },
+                ]}
+              >
+                <Icon name={row.icon} />
+                <Text variant="body" style={{ flex: 1 }}>
+                  {row.label}
+                </Text>
+                <Text variant="caption" color="tertiary">
+                  {row.summary} ›
+                </Text>
+              </Pressable>
+            </FadeIn>
           ))}
         </View>
 

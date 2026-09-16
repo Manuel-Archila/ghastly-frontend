@@ -2,6 +2,8 @@ import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
+import type { Ionicons } from "@expo/vector-icons";
+
 import type { UpcomingItemOut, UpcomingSourceType } from "@/data/api/reports";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { countPendingOutbox } from "@/data/repositories/transactions";
@@ -10,17 +12,17 @@ import { computeCurrentCycle } from "@/domain/creditCycle";
 import { Money, formatForKind } from "@/domain/money";
 import { useDashboard } from "@/features/reports/useDashboard";
 import { clampDay, daysBetween, todayIso } from "@/lib/dates";
-import { Button, Card, ProgressBar, Screen, Skeleton, Text } from "@/ui/primitives";
+import { Button, Card, FadeIn, Icon, ProgressBar, Screen, Skeleton, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 const LIABILITY_TYPES = new Set(["credit_card", "loan"]);
 
-const UPCOMING_ICON: Record<UpcomingSourceType, string> = {
-  installment: "📦",
-  recurring: "🔁",
-  card_statement: "💳",
-  card_payment: "💳",
-  debt_payment: "🏦",
+const UPCOMING_ICON: Record<UpcomingSourceType, keyof typeof Ionicons.glyphMap> = {
+  installment: "layers-outline",
+  recurring: "repeat-outline",
+  card_statement: "card-outline",
+  card_payment: "card-outline",
+  debt_payment: "trending-down-outline",
 };
 
 function currentMonth(): string {
@@ -180,8 +182,10 @@ export default function TodayScreen() {
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={{ flexDirection: "row", gap: spacing[3] }}>
-              {accounts.map((a) => (
-                <AccountCard key={a.id} account={a} />
+              {accounts.map((a, index) => (
+                <FadeIn key={a.id} delay={index * 40}>
+                  <AccountCard account={a} />
+                </FadeIn>
               ))}
             </View>
           </ScrollView>
@@ -192,8 +196,10 @@ export default function TodayScreen() {
             <Text variant="caption" color="secondary">
               PRÓXIMOS VENCIMIENTOS
             </Text>
-            {upcoming.map((item) => (
-              <UpcomingRow key={`${item.source_type}-${item.source_id}`} item={item} />
+            {upcoming.map((item, index) => (
+              <FadeIn key={`${item.source_type}-${item.source_id}`} delay={index * 30}>
+                <UpcomingRow item={item} />
+              </FadeIn>
             ))}
           </View>
         ) : null}
@@ -203,28 +209,38 @@ export default function TodayScreen() {
             <Text variant="caption" color="secondary">
               EN QUÉ SE FUE
             </Text>
-            {topCategories.map((cat) => {
+            {topCategories.map((cat, index) => {
               const percent =
                 cashflow.expense_cents > 0
                   ? Math.round((cat.net_spent_cents / cashflow.expense_cents) * 100)
                   : 0;
               return (
-                <View key={cat.category_id} style={{ gap: spacing[1] }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <Text variant="body">{cat.category_name}</Text>
-                    <Text variant="bodyStrong">{new Money(cat.net_spent_cents).format()}</Text>
+                <FadeIn key={cat.category_id} delay={index * 30}>
+                  <View style={{ gap: spacing[1] }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                      <Text variant="body">{cat.category_name}</Text>
+                      <Text variant="bodyStrong">{new Money(cat.net_spent_cents).format()}</Text>
+                    </View>
+                    <ProgressBar percent={percent} color={colors.accent.bg} />
                   </View>
-                  <ProgressBar percent={percent} color={colors.accent.bg} />
-                </View>
+                </FadeIn>
               );
             })}
           </View>
         ) : null}
 
         {topAnomaly ? (
-          <Card style={{ backgroundColor: colors.warning.bg }}>
-            <Text variant="body" style={{ color: colors.warning.fg }}>
-              ⚡ Gastaste {topAnomaly.percent_increase}% más en {topAnomaly.category_name} que el
+          <Card
+            style={{
+              backgroundColor: colors.warning.bg,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: spacing[2],
+            }}
+          >
+            <Icon name="flash-outline" color={colors.warning.fg} />
+            <Text variant="body" style={{ color: colors.warning.fg, flex: 1 }}>
+              Gastaste {topAnomaly.percent_increase}% más en {topAnomaly.category_name} que el
               promedio.
             </Text>
           </Card>
@@ -286,8 +302,8 @@ function UpcomingRow({ item }: { item: UpcomingItemOut }) {
         borderBottomColor: colors.border.subtle,
       }}
     >
-      <View style={{ flexDirection: "row", gap: spacing[2], flex: 1 }}>
-        <Text variant="body">{UPCOMING_ICON[item.source_type]}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[2], flex: 1 }}>
+        <Icon name={UPCOMING_ICON[item.source_type]} size={18} />
         <Text variant="body" numberOfLines={1} style={{ flex: 1 }}>
           {item.name}
         </Text>

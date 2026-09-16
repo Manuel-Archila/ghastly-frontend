@@ -12,7 +12,7 @@ import {
 } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { Button, FadeIn, Icon, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function InstallmentPlanScreen() {
@@ -84,9 +84,12 @@ export default function InstallmentPlanScreen() {
             disabled={busy}
           />
         ) : (
-          <Text variant="body" color="secondary">
-            Todas las cuotas pagadas 🎉
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[2] }}>
+            <Icon name="sparkles-outline" color={colors.income.fg} />
+            <Text variant="body" color="secondary">
+              Todas las cuotas pagadas
+            </Text>
+          </View>
         )}
         {error ? (
           <Text variant="caption" style={{ color: colors.danger.fg }}>
@@ -95,29 +98,37 @@ export default function InstallmentPlanScreen() {
         ) : null}
 
         <View style={{ gap: spacing[1] }}>
-          {rows.map((r) => (
-            <View
-              key={r.id}
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                paddingVertical: spacing[1],
-              }}
-            >
-              <Text
-                variant="body"
-                style={{ color: r.status === "paid" ? colors.text.tertiary : colors.text.primary }}
+          {rows.map((r, index) => (
+            <FadeIn key={r.id} delay={index * 20}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  paddingVertical: spacing[1],
+                }}
               >
-                {r.status === "paid" ? "✓ " : ""}
-                {r.number}/{plan.installmentsCount} · {r.dueDate}
-              </Text>
-              <Text
-                variant="bodyStrong"
-                style={{ color: r.status === "paid" ? colors.text.tertiary : colors.text.primary }}
-              >
-                {new Money(r.amountCents).format()}
-              </Text>
-            </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[1] }}>
+                  {r.status === "paid" ? (
+                    <Icon name="checkmark-circle-outline" size={16} color={colors.text.tertiary} />
+                  ) : null}
+                  <Text
+                    variant="body"
+                    style={{
+                      color: r.status === "paid" ? colors.text.tertiary : colors.text.primary,
+                    }}
+                  >
+                    {r.number}/{plan.installmentsCount} · {r.dueDate}
+                  </Text>
+                </View>
+                <Text
+                  variant="bodyStrong"
+                  style={{ color: r.status === "paid" ? colors.text.tertiary : colors.text.primary }}
+                >
+                  {new Money(r.amountCents).format()}
+                </Text>
+              </View>
+            </FadeIn>
           ))}
         </View>
       </ScrollView>

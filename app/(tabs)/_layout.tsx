@@ -1,6 +1,17 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import type { ColorValue } from "react-native";
 
 import { useTokens } from "@/ui/tokens";
+
+type IconName = keyof typeof Ionicons.glyphMap;
+
+function tabIcon(active: IconName, inactive: IconName) {
+  function TabIcon({ focused, color, size }: { focused: boolean; color: ColorValue; size: number }) {
+    return <Ionicons name={focused ? active : inactive} color={color as string} size={size} />;
+  }
+  return TabIcon;
+}
 
 /**
  * 5 tabs, ni una más (PLAN-frontend §5) — Hoy, Movimientos, [FAB],
@@ -23,10 +34,25 @@ export default function TabsLayout() {
         },
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Hoy" }} />
-      <Tabs.Screen name="transactions" options={{ title: "Movimientos" }} />
-      <Tabs.Screen name="budget" options={{ title: "Presupuesto" }} />
-      <Tabs.Screen name="more" options={{ title: "Más" }} />
+      <Tabs.Screen
+        name="index"
+        options={{ title: "Hoy", tabBarIcon: tabIcon("home", "home-outline") }}
+      />
+      <Tabs.Screen
+        name="transactions"
+        options={{ title: "Movimientos", tabBarIcon: tabIcon("list", "list-outline") }}
+      />
+      <Tabs.Screen
+        name="budget"
+        options={{ title: "Presupuesto", tabBarIcon: tabIcon("pie-chart", "pie-chart-outline") }}
+      />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: "Más",
+          tabBarIcon: tabIcon("ellipsis-horizontal-circle", "ellipsis-horizontal-circle-outline"),
+        }}
+      />
     </Tabs>
   );
 }

@@ -8,7 +8,7 @@ import {
   type InstallmentPlan,
 } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { Button, FadeIn, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function InstallmentsScreen() {
@@ -48,24 +48,28 @@ export default function InstallmentsScreen() {
 
         <Button label="Nuevo plan de cuotas" onPress={() => router.push("/installments/new")} />
 
-        {plans.map((plan) => (
-          <Pressable
-            key={plan.id}
-            onPress={() => router.push(`/installments/${plan.id}`)}
-            style={{
-              paddingVertical: spacing[2],
-              borderBottomWidth: 1,
-              borderBottomColor: colors.border.subtle,
-            }}
-          >
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text variant="body">{plan.description}</Text>
-              <Text variant="bodyStrong">{new Money(plan.totalAmountCents).format()}</Text>
-            </View>
-            <Text variant="caption" color="tertiary">
-              {plan.installmentsCount} cuotas · desde {plan.firstPaymentDate}
-            </Text>
-          </Pressable>
+        {plans.map((plan, index) => (
+          <FadeIn key={plan.id} delay={index * 30}>
+            <Pressable
+              onPress={() => router.push(`/installments/${plan.id}`)}
+              style={(state) => [
+                {
+                  paddingVertical: spacing[2],
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.border.subtle,
+                  opacity: state.pressed ? 0.6 : 1,
+                },
+              ]}
+            >
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text variant="body">{plan.description}</Text>
+                <Text variant="bodyStrong">{new Money(plan.totalAmountCents).format()}</Text>
+              </View>
+              <Text variant="caption" color="tertiary">
+                {plan.installmentsCount} cuotas · desde {plan.firstPaymentDate}
+              </Text>
+            </Pressable>
+          </FadeIn>
         ))}
 
         {plans.length === 0 ? (

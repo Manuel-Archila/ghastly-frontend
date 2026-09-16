@@ -95,13 +95,16 @@ export default function TransactionsScreen() {
         renderItem={({ item }) => (
           <Pressable
             onPress={() => router.push(`/transactions/${item.id}`)}
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              paddingVertical: spacing[2],
-              borderBottomWidth: 1,
-              borderBottomColor: colors.border.subtle,
-            }}
+            style={(state) => [
+              {
+                flexDirection: "row",
+                justifyContent: "space-between",
+                paddingVertical: spacing[2],
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border.subtle,
+                opacity: state.pressed ? 0.6 : 1,
+              },
+            ]}
           >
             <View style={{ flex: 1, gap: 2 }}>
               <Text variant="body">{item.description ?? item.categoryName ?? "Sin descripción"}</Text>

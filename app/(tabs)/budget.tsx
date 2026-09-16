@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { computeBudgetCurrent, type BudgetCurrent } from "@/data/repositories/budgets";
 import { Money } from "@/domain/money";
-import { Button, ProgressBar, Screen, Text, semaphoreColor } from "@/ui/primitives";
+import { Button, FadeIn, ProgressBar, Screen, Text, semaphoreColor } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 function currentMonth(): string {
@@ -69,25 +69,27 @@ export default function BudgetScreen() {
           </Text>
         </View>
 
-        {data.items.map((item) => (
-          <View key={item.categoryId} style={{ gap: spacing[1] }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text variant="body">{item.categoryName}</Text>
-              <Text
-                variant="bodyStrong"
-                style={{ color: semaphoreColor(item.percentConsumed, colors) }}
-              >
-                {item.percentConsumed}%
+        {data.items.map((item, index) => (
+          <FadeIn key={item.categoryId} delay={index * 30}>
+            <View style={{ gap: spacing[1] }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                <Text variant="body">{item.categoryName}</Text>
+                <Text
+                  variant="bodyStrong"
+                  style={{ color: semaphoreColor(item.percentConsumed, colors) }}
+                >
+                  {item.percentConsumed}%
+                </Text>
+              </View>
+              <ProgressBar percent={item.percentConsumed} />
+              <Text variant="caption" color="tertiary">
+                {new Money(item.spentCents).format()} / {new Money(item.budgetedCents).format()}
+                {item.availableCents >= 0
+                  ? `  ·  ${new Money(item.availableCents).format()} disponibles  ·  ~${new Money(item.suggestedDailyPaceCents).format()}/día`
+                  : `  ·  ${new Money(-item.availableCents).format()} sobre el límite`}
               </Text>
             </View>
-            <ProgressBar percent={item.percentConsumed} />
-            <Text variant="caption" color="tertiary">
-              {new Money(item.spentCents).format()} / {new Money(item.budgetedCents).format()}
-              {item.availableCents >= 0
-                ? `  ·  ${new Money(item.availableCents).format()} disponibles  ·  ~${new Money(item.suggestedDailyPaceCents).format()}/día`
-                : `  ·  ${new Money(-item.availableCents).format()} sobre el límite`}
-            </Text>
-          </View>
+          </FadeIn>
         ))}
 
         {data.unbudgeted.length > 0 ? (

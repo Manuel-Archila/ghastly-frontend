@@ -1,7 +1,8 @@
-import { Pressable, type PressableProps, type ViewStyle } from "react-native";
+import { type PressableProps, type PressableStateCallbackType, type ViewStyle } from "react-native";
 
 import { Text } from "@/ui/primitives/Text";
 import { useTokens } from "@/ui/tokens";
+import { AnimatedPressable, usePressScale } from "@/ui/usePressScale";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -20,9 +21,12 @@ export function Button({
   fullWidth = true,
   style,
   disabled,
+  onPressIn,
+  onPressOut,
   ...props
 }: ButtonProps) {
   const { colors, spacing, radii, minTouchTarget } = useTokens();
+  const { scale, onPressIn: animateIn, onPressOut: animateOut } = usePressScale();
 
   const backgrounds: Record<Variant, string> = {
     primary: colors.accent.bg,
@@ -49,12 +53,21 @@ export function Button({
   };
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityState={{ disabled: Boolean(disabled) }}
       disabled={disabled}
-      style={(state) => [
+      onPressIn={(e: Parameters<NonNullable<PressableProps["onPressIn"]>>[0]) => {
+        animateIn();
+        onPressIn?.(e);
+      }}
+      onPressOut={(e: Parameters<NonNullable<PressableProps["onPressOut"]>>[0]) => {
+        animateOut();
+        onPressOut?.(e);
+      }}
+      style={(state: PressableStateCallbackType) => [
         baseStyle,
+        { transform: [{ scale }] },
         typeof style === "function" ? style(state) : style,
         state.pressed && { opacity: 0.85 },
       ]}
@@ -63,6 +76,6 @@ export function Button({
       <Text variant="bodyStrong" style={{ color: textColors[variant] }}>
         {label}
       </Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }

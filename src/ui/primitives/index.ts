@@ -7,3 +7,5 @@ export { KeypadNumeric } from "./KeypadNumeric";
 export { Card } from "./Card";
 export { ProgressBar, semaphoreColor } from "./ProgressBar";
 export { Skeleton } from "./Skeleton";
+export { Icon } from "./Icon";
+export { FadeIn } from "./FadeIn";
