@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, SectionList, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import {
   listTransactions,
@@ -26,14 +26,32 @@ function today(): string {
 export default function TransactionsScreen() {
   const router = useRouter();
   const { spacing, colors } = useTokens();
+  const params = useLocalSearchParams<{ categoryId?: string; categoryName?: string }>();
 
   const [items, setItems] = useState<TransactionListItem[]>([]);
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<TransactionFilters["kind"]>(undefined);
+  const [categoryFilter, setCategoryFilter] = useState<{ id: string; name: string } | null>(null);
+
+  // Llega desde Reportes → Categorías (tocar una fila filtra Movimientos
+  // por esa categoría). Solo se toma al entrar con el param presente.
+  useEffect(() => {
+    if (!params.categoryId) return;
+    void (async () => {
+      setCategoryFilter({ id: params.categoryId!, name: params.categoryName ?? "" });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al recibir el param
+  }, [params.categoryId]);
 
   const load = useCallback(async () => {
-    setItems(await listTransactions({ search: search.trim() || undefined, kind }));
-  }, [search, kind]);
+    setItems(
+      await listTransactions({
+        search: search.trim() || undefined,
+        kind,
+        categoryId: categoryFilter?.id,
+      }),
+    );
+  }, [search, kind, categoryFilter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -63,6 +81,13 @@ export default function TransactionsScreen() {
             />
           ))}
         </View>
+        {categoryFilter ? (
+          <Chip
+            label={`Categoría: ${categoryFilter.name} ✕`}
+            selected
+            onPress={() => setCategoryFilter(null)}
+          />
+        ) : null}
       </View>
 
       <SectionList

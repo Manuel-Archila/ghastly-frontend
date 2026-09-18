@@ -18,6 +18,14 @@ export interface ColorTokens {
   warning: { fg: string; bg: string };
   danger: { fg: string; bg: string };
   accent: { fg: string; bg: string };
+  /** Paleta para gráficas de categorías (Reportes) — orden fijo, nunca
+   * ciclado (skill `dataviz`): azul/naranja/aqua/amarillo/magenta/verde,
+   * 6 slots validados para pares adyacentes (donut) en ambos modos.
+   * `categoryColorFor` (`lib/categoryColor.ts`) asigna un slot fijo por
+   * `category_id` — nunca por posición/ranking, para que el color de una
+   * categoría no cambie de pantalla en pantalla. */
+  categorical: string[];
+  categoricalOther: string;
 }
 
 export const lightColors: ColorTokens = {
@@ -30,6 +38,8 @@ export const lightColors: ColorTokens = {
   warning: { fg: "#9A6300", bg: "#FFF3D9" },
   danger: { fg: "#C4281B", bg: "#FBE7E4" },
   accent: { fg: "#FFFFFF", bg: "#5B4FE8" },
+  categorical: ["#2A78D6", "#EB6834", "#1BAF7A", "#EDA100", "#E87BA4", "#008300"],
+  categoricalOther: "#9AA1AC",
 };
 
 export const darkColors: ColorTokens = {
@@ -42,4 +52,6 @@ export const darkColors: ColorTokens = {
   warning: { fg: "#FFC24B", bg: "#3A2A08" },
   danger: { fg: "#FF6259", bg: "#3A1210" },
   accent: { fg: "#FFFFFF", bg: "#7C72FF" },
+  categorical: ["#3987E5", "#D95926", "#199E70", "#C98500", "#D55181", "#008300"],
+  categoricalOther: "#6E7480",
 };

@@ -67,6 +67,13 @@ describe("Money", () => {
     expect(new Money(100, "USD").format()).toBe("$ 1.00");
   });
 
+  it("formats compact for chart axes (PLAN-frontend §6.10)", () => {
+    expect(new Money(1_250_000, "GTQ").formatCompact()).toBe("Q 12.5k"); // Q12,500.00
+    expect(new Money(250_000_000, "GTQ").formatCompact()).toBe("Q 2.5M"); // Q2,500,000.00
+    expect(new Money(5_000, "GTQ").formatCompact()).toBe("Q 50"); // Q50.00, sin decimales
+    expect(new Money(-1_250_000, "GTQ").formatCompact()).toBe("− Q 12.5k");
+  });
+
   it("sums a list of amounts", () => {
     expect(sumMoney([new Money(100), new Money(200), new Money(300)])).toEqual(new Money(600));
   });

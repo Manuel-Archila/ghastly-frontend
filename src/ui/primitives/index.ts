@@ -9,3 +9,5 @@ export { ProgressBar, semaphoreColor } from "./ProgressBar";
 export { Skeleton } from "./Skeleton";
 export { Icon } from "./Icon";
 export { FadeIn } from "./FadeIn";
+export { SegmentedControl } from "./SegmentedControl";
+export type { SegmentedControlOption } from "./SegmentedControl";

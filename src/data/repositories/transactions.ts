@@ -290,6 +290,7 @@ export interface TransactionFilters {
   kind?: "expense" | "income" | "transfer";
   from?: string;
   to?: string;
+  categoryId?: string;
 }
 
 export async function listTransactions(
@@ -300,6 +301,7 @@ export async function listTransactions(
   if (filters.kind) conditions.push(eq(transactions.kind, filters.kind));
   if (filters.from) conditions.push(gte(transactions.date, filters.from));
   if (filters.to) conditions.push(lte(transactions.date, filters.to));
+  if (filters.categoryId) conditions.push(eq(transactions.categoryId, filters.categoryId));
   if (filters.search) {
     const q = `%${filters.search.toLowerCase()}%`;
     conditions.push(

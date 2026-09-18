@@ -97,6 +97,17 @@ export class Money {
     return new Money(converted, toCurrency);
   }
 
+  /** Compacto para ejes de gráfica (PLAN-frontend §6.10: "Q 12.5k") — el
+   * valor exacto va en el tooltip/tabla, esto es solo para el eje. */
+  formatCompact(): string {
+    const symbol = SYMBOLS[this.currency] ?? `${this.currency} `;
+    const sign = this.cents < 0 ? `${MINUS_SIGN} ` : "";
+    const units = Math.abs(this.cents) / 100;
+    if (units >= 1_000_000) return `${sign}${symbol} ${(units / 1_000_000).toFixed(1)}M`;
+    if (units >= 1_000) return `${sign}${symbol} ${(units / 1_000).toFixed(1)}k`;
+    return `${sign}${symbol} ${Math.round(units)}`;
+  }
+
   /** Magnitud con símbolo: `Q 1,250.00` · negativo: `− Q 5.00`. */
   format(): string {
     const symbol = SYMBOLS[this.currency] ?? `${this.currency} `;
