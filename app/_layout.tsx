@@ -76,7 +76,24 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack
+        screenOptions={{
+          headerShown: true,
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: colors.bg.surface },
+          headerTintColor: colors.accent.bg,
+          // Sin fontSize/fontWeight propios: el título nativo por default ya
+          // es 17/600 (el mismo valor que se hubiera hardcodeado acá, sin
+          // inventar un literal fuera de `ui/tokens/typography`) y sigue el
+          // ajuste de tamaño de letra del sistema mejor que un valor fijo.
+          headerTitleStyle: { color: colors.text.primary },
+        }}
+      >
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(modals)" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      </Stack>
     </QueryClientProvider>
   );
 }

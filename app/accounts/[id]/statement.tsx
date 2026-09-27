@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
 import { getAccount, type Account } from "@/data/repositories/accounts";
 import { computeCurrentCycle, type CreditCycle } from "@/domain/creditCycle";
@@ -30,7 +30,8 @@ export default function StatementScreen() {
 
   if (!account) {
     return (
-      <Screen style={{ paddingTop: spacing[5] }}>
+      <Screen>
+        <Stack.Screen options={{ title: "Estado de cuenta" }} />
         <Text variant="body" color="secondary">
           Cargando…
         </Text>
@@ -39,9 +40,8 @@ export default function StatementScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5], gap: spacing[4] }}>
-      <Button label="Volver" variant="ghost" fullWidth={false} onPress={() => router.back()} />
-      <Text variant="title1">{account.name}</Text>
+    <Screen style={{ gap: spacing[4] }}>
+      <Stack.Screen options={{ title: account.name }} />
 
       <View>
         <Text variant="caption" color="secondary">

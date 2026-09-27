@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
+import { Stack } from "expo-router";
 
 import { ReportsTabs } from "@/features/reports/ReportsTabs";
 import { useComparison } from "@/features/reports/useComparison";
@@ -45,14 +46,13 @@ export default function ReportsComparisonScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Comparativo" }} />
       <View style={{ paddingBottom: spacing[3] }}>
         <ReportsTabs active="comparison" />
       </View>
 
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Text variant="title1">Comparativo</Text>
-
         <View style={{ flexDirection: "row", gap: spacing[2] }}>
           <Chip
             label="vs. mes anterior"

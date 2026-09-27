@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Alert, ScrollView, Switch, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import { deleteAccount } from "@/data/api/accounts";
 import { ApiError } from "@/data/api/client";
@@ -84,11 +84,9 @@ export default function AccountsScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Cuentas" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Button label="Volver" variant="ghost" fullWidth={false} onPress={() => router.back()} />
-        <Text variant="title1">Cuentas</Text>
-
         {accounts.length === 0 ? (
           <Text variant="body" color="secondary">
             Todavía no tenés cuentas.

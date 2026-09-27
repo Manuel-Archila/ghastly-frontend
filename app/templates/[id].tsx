@@ -1,0 +1,105 @@
+import { useState } from "react";
+import { ScrollView, View } from "react-native";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+
+import { errorMessageFor } from "@/data/api/error-messages";
+import { deleteTemplate, updateTemplate, type TemplatePatch } from "@/data/api/templates";
+import { runSync } from "@/data/sync";
+import { TemplateForm, type TemplateSubmit } from "@/features/templates/TemplateForm";
+import { useInvalidateTemplates, useTemplates } from "@/features/templates/useTemplates";
+import { confirmDestructive } from "@/ui/confirm";
+import { Button, Screen, Text } from "@/ui/primitives";
+import { useTokens } from "@/ui/tokens";
+
+export default function EditTemplateScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const { spacing } = useTokens();
+  const { templates, isLoading } = useTemplates();
+  const invalidate = useInvalidateTemplates();
+  const template = templates.find((t) => t.id === id);
+
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!template) {
+    return (
+      <Screen style={{ paddingTop: spacing[4] }}>
+        <Stack.Screen options={{ title: "Plantilla" }} />
+        <Text variant="body" color="secondary">
+          {isLoading ? "Cargando…" : "Ya no existe."}
+        </Text>
+      </Screen>
+    );
+  }
+  const current = template;
+
+  async function onSubmit(v: TemplateSubmit) {
+    const patch: TemplatePatch = {};
+    if (v.name !== current.name) patch.name = v.name;
+    if (v.accountId !== current.account_id) patch.account_id = v.accountId;
+    if (v.amountCents !== current.amount_cents) patch.amount_cents = v.amountCents;
+    if (v.description !== current.description) patch.description = v.description;
+    // Cambiar el tipo revalida la categoría que ya tenía: van en el mismo PATCH.
+    if (v.kind !== current.kind) patch.kind = v.kind;
+    if (v.kind !== current.kind || v.categoryId !== current.category_id) {
+      patch.category_id = v.categoryId;
+    }
+    if (Object.keys(patch).length === 0) return router.back();
+
+    setBusy(true);
+    setError(null);
+    try {
+      await runSync().catch(() => {});
+      await updateTemplate(current.id, patch);
+      await invalidate();
+      router.back();
+    } catch (e) {
+      setError(errorMessageFor(e));
+      setBusy(false);
+    }
+  }
+
+  async function onDelete() {
+    const ok = await confirmDestructive(
+      `Eliminar ${current.name}`,
+      "Los movimientos que ya creaste con ella no cambian.",
+      "Eliminar",
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await deleteTemplate(current.id);
+      await invalidate();
+      router.back();
+    } catch (e) {
+      setError(errorMessageFor(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Screen>
+      <Stack.Screen options={{ title: current.name }} />
+      <ScrollView contentContainerStyle={{ gap: spacing[6], paddingVertical: spacing[4], paddingBottom: spacing[8] }}>
+        <TemplateForm
+          initial={{
+            name: current.name,
+            kind: current.kind,
+            accountId: current.account_id,
+            categoryId: current.category_id,
+            amount: (current.amount_cents / 100).toFixed(2),
+            description: current.description ?? "",
+          }}
+          submitLabel="Guardar"
+          busy={busy}
+          error={error}
+          onSubmit={(v) => void onSubmit(v)}
+        />
+        <View style={{ gap: spacing[2] }}>
+          <Button label="Eliminar plantilla" variant="danger" disabled={busy} onPress={() => void onDelete()} />
+        </View>
+      </ScrollView>
+    </Screen>
+  );
+}

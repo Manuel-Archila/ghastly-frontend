@@ -1,5 +1,9 @@
 import { ScrollView, View } from "react-native";
-import { LineChart } from "react-native-gifted-charts";
+import { Stack } from "expo-router";
+// Import directo al submódulo — ver la nota en reports/trends.tsx: evita
+// que el barrel de la librería arrastre BarChart y su dependencia opcional
+// de expo-linear-gradient, que esta app no usa ni tiene instalada.
+import { LineChart } from "react-native-gifted-charts/dist/LineChart";
 
 import { ReportsTabs } from "@/features/reports/ReportsTabs";
 import { useSummary } from "@/features/reports/useSummary";
@@ -12,14 +16,13 @@ export default function ReportsSummaryScreen() {
   const { netWorth, savingsRate, currentMonth, isLoading, isError, refetch } = useSummary();
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Reportes" }} />
       <View style={{ paddingBottom: spacing[3] }}>
         <ReportsTabs active="summary" />
       </View>
 
       <ScrollView contentContainerStyle={{ gap: spacing[5], paddingBottom: spacing[8] }}>
-        <Text variant="title1">Reportes</Text>
-
         {isLoading ? (
           <View style={{ gap: spacing[3] }}>
             <Skeleton height={140} />

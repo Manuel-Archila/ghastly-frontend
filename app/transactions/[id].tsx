@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { View } from "react-native";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import {
   createRefundLocally,
@@ -47,7 +47,8 @@ export default function TransactionDetailScreen() {
 
   if (!txn) {
     return (
-      <Screen style={{ paddingTop: spacing[5] }}>
+      <Screen>
+        <Stack.Screen options={{ title: "Movimiento" }} />
         <Text variant="body" color="secondary">
           Cargando…
         </Text>
@@ -73,10 +74,8 @@ export default function TransactionDetailScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5], gap: spacing[4] }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Button label="Volver" variant="ghost" fullWidth={false} onPress={() => router.back()} />
-      </View>
+    <Screen style={{ gap: spacing[4] }}>
+      <Stack.Screen options={{ title: txn.description ?? txn.categoryName ?? "Movimiento" }} />
 
       <Text variant="display" style={{ color }}>
         {formatForKind(new Money(txn.amountCents), kind)}
@@ -97,6 +96,13 @@ export default function TransactionDetailScreen() {
           <Button label="Editar" onPress={() => router.push(`/transactions/${id}/edit`)} />
           {kind === "expense" && !txn.refundOfId ? (
             <Button label="Registrar reembolso" variant="secondary" onPress={onRefund} />
+          ) : null}
+          {kind === "expense" && !txn.refundOfId ? (
+            <Button
+              label="Dividir / me deben"
+              variant="secondary"
+              onPress={() => router.push(`/receivables/new?transactionId=${id}`)}
+            />
           ) : null}
           <Button label="Eliminar" variant="danger" onPress={onDelete} />
         </View>

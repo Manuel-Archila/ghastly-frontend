@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { payInstallment } from "@/data/api/commitments";
 import { ApiError } from "@/data/api/client";
@@ -17,7 +17,6 @@ import { useTokens } from "@/ui/tokens";
 
 export default function InstallmentPlanScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const { spacing, colors } = useTokens();
 
   const [plan, setPlan] = useState<InstallmentPlan | undefined>();
@@ -57,7 +56,8 @@ export default function InstallmentPlanScreen() {
 
   if (!plan) {
     return (
-      <Screen style={{ paddingTop: spacing[5] }}>
+      <Screen>
+        <Stack.Screen options={{ title: "Plan de cuotas" }} />
         <Text variant="body" color="secondary">
           Cargando…
         </Text>
@@ -66,10 +66,9 @@ export default function InstallmentPlanScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: plan.description }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Button label="Volver" variant="ghost" fullWidth={false} onPress={() => router.back()} />
-        <Text variant="title1">{plan.description}</Text>
         <View>
           <Text variant="caption" color="secondary">
             Saldo pendiente

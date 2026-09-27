@@ -119,6 +119,8 @@ export default function TransactionsScreen() {
         )}
         renderItem={({ item }) => (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${item.description ?? item.categoryName ?? "Sin descripción"}, ${formatForKind(new Money(item.amountCents), item.kind as "expense" | "income" | "transfer")}`}
             onPress={() => router.push(`/transactions/${item.id}`)}
             style={(state) => [
               {

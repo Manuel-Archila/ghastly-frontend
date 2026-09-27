@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 
 import { createGoal } from "@/data/api/commitments";
 import { ApiError } from "@/data/api/client";
@@ -44,9 +44,9 @@ export default function NewGoalScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Nueva meta" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Text variant="title1">Nueva meta</Text>
         <Input label="Nombre" value={name} onChangeText={setName} placeholder="Fondo de emergencia" />
         <Input label="Objetivo" value={target} onChangeText={setTarget} keyboardType="decimal-pad" />
 

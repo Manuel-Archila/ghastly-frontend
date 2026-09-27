@@ -4,7 +4,8 @@ import { useFocusEffect, useRouter } from "expo-router";
 
 import { computeBudgetCurrent, type BudgetCurrent } from "@/data/repositories/budgets";
 import { Money } from "@/domain/money";
-import { Button, FadeIn, ProgressBar, Screen, Text, semaphoreColor } from "@/ui/primitives";
+import { nestByParent } from "@/features/budget/nest";
+import { Button, FadeIn, Notice, ProgressBar, Screen, Text, semaphoreColor } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 function currentMonth(): string {
@@ -69,11 +70,11 @@ export default function BudgetScreen() {
           </Text>
         </View>
 
-        {data.items.map((item, index) => (
+        {nestByParent(data.items).map(({ item, depth }, index) => (
           <FadeIn key={item.categoryId} delay={index * 30}>
-            <View style={{ gap: spacing[1] }}>
+            <View style={{ gap: spacing[1], marginLeft: depth === 1 ? spacing[5] : 0 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text variant="body">{item.categoryName}</Text>
+                <Text variant={depth === 1 ? "body" : "bodyStrong"}>{item.categoryName}</Text>
                 <Text
                   variant="bodyStrong"
                   style={{ color: semaphoreColor(item.percentConsumed, colors) }}
@@ -88,6 +89,16 @@ export default function BudgetScreen() {
                   ? `  ·  ${new Money(item.availableCents).format()} disponibles  ·  ~${new Money(item.suggestedDailyPaceCents).format()}/día`
                   : `  ·  ${new Money(-item.availableCents).format()} sobre el límite`}
               </Text>
+              {item.childrenBudgetedCents > 0 ? (
+                <Text variant="caption" color="tertiary">
+                  Incluye subcategorías · repartidas {new Money(item.childrenBudgetedCents).format()}
+                </Text>
+              ) : null}
+              {item.childrenExcessCents > 0 ? (
+                <Notice
+                  text={`Las subcategorías suman ${new Money(item.childrenExcessCents).format()} más que el tope de ${item.categoryName}.`}
+                />
+              ) : null}
             </View>
           </FadeIn>
         ))}

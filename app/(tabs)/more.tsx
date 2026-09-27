@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
 import type { Ionicons } from "@expo/vector-icons";
 
@@ -12,7 +12,7 @@ import {
 import { listAccounts } from "@/data/repositories/accounts";
 import { useSessionStore } from "@/features/auth/session-store";
 import { Money } from "@/domain/money";
-import { Button, FadeIn, Icon, Screen, Text } from "@/ui/primitives";
+import { Button, FadeIn, ListRow, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 interface RowSpec {
@@ -26,7 +26,7 @@ export default function MoreScreen() {
   const router = useRouter();
   const user = useSessionStore((s) => s.user);
   const logout = useSessionStore((s) => s.logout);
-  const { spacing, colors } = useTokens();
+  const { spacing } = useTokens();
 
   const [rows, setRows] = useState<RowSpec[]>([]);
 
@@ -71,14 +71,10 @@ export default function MoreScreen() {
             href: "/goals",
             summary: `${goals.filter((g) => g.status === "active").length} en progreso`,
           },
+          { icon: "people-outline", label: "Me deben", href: "/receivables", summary: "" },
           { icon: "calendar-outline", label: "Calendario", href: "/calendar", summary: "" },
           { icon: "pie-chart-outline", label: "Reportes", href: "/reports", summary: "" },
-          {
-            icon: "notifications-outline",
-            label: "Notificaciones",
-            href: "/settings/notifications",
-            summary: "",
-          },
+          { icon: "settings-outline", label: "Ajustes", href: "/settings", summary: "" },
         ]);
       })();
     }, []),
@@ -97,28 +93,12 @@ export default function MoreScreen() {
         <View>
           {rows.map((row, index) => (
             <FadeIn key={row.label} delay={index * 30}>
-              <Pressable
+              <ListRow
+                icon={row.icon}
+                label={row.label}
+                summary={row.summary}
                 onPress={() => router.push(row.href)}
-                style={(state) => [
-                  {
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: spacing[3],
-                    paddingVertical: spacing[3],
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.border.subtle,
-                    opacity: state.pressed ? 0.6 : 1,
-                  },
-                ]}
-              >
-                <Icon name={row.icon} />
-                <Text variant="body" style={{ flex: 1 }}>
-                  {row.label}
-                </Text>
-                <Text variant="caption" color="tertiary">
-                  {row.summary} ›
-                </Text>
-              </Pressable>
+              />
             </FadeIn>
           ))}
         </View>

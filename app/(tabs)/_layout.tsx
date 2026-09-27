@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
-import type { ColorValue } from "react-native";
+import { Tabs, useRouter } from "expo-router";
+import { Pressable, View, type ColorValue } from "react-native";
 
 import { useTokens } from "@/ui/tokens";
 
@@ -13,11 +13,47 @@ function tabIcon(active: IconName, inactive: IconName) {
   return TabIcon;
 }
 
+/** Botón central: no es un tab, abre la captura rápida (la métrica que manda:
+ * registrar un gasto en < 10 s, siempre a un tap desde cualquier tab). */
+function AddButton() {
+  const router = useRouter();
+  const { colors, spacing, minTouchTarget } = useTokens();
+  // El círculo se ve del tamaño de un ícono de la barra; el área táctil es
+  // todo el espacio del tab (mínimo 48×48).
+  const size = minTouchTarget - spacing[2];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Registrar gasto"
+      onPress={() => router.push("/(modals)/quick-add")}
+      style={({ pressed }) => ({
+        flex: 1,
+        minHeight: minTouchTarget,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.accent.bg,
+        }}
+      >
+        <Ionicons name="add" size={size * 0.7} color={colors.accent.fg} />
+      </View>
+    </Pressable>
+  );
+}
+
 /**
  * 5 tabs, ni una más (PLAN-frontend §5) — Hoy, Movimientos, [FAB],
- * Presupuesto, Más. El FAB central (captura rápida) no es un tab real,
- * es una acción con `tabBarButton` propio: llega en Fase 1 junto con la
- * pantalla de captura rápida que abre. Por ahora, 4 tabs vacíos.
+ * Presupuesto, Más. El FAB central no es un tab real: `tabBarButton`
+ * propio que abre la captura rápida.
  */
 export default function TabsLayout() {
   const { colors } = useTokens();
@@ -41,6 +77,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="transactions"
         options={{ title: "Movimientos", tabBarIcon: tabIcon("list", "list-outline") }}
+      />
+      <Tabs.Screen
+        name="add"
+        options={{ title: "Registrar", tabBarButton: () => <AddButton /> }}
       />
       <Tabs.Screen
         name="budget"

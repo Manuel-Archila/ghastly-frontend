@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
 import { listCategories, type Category } from "@/data/repositories/categories";
 import {
@@ -52,7 +52,8 @@ export default function EditTransactionScreen() {
 
   if (!txn) {
     return (
-      <Screen style={{ paddingTop: spacing[5] }}>
+      <Screen>
+        <Stack.Screen options={{ title: "Editar" }} />
         <Text variant="body" color="secondary">
           Cargando…
         </Text>
@@ -61,10 +62,9 @@ export default function EditTransactionScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Editar" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Text variant="title1">Editar</Text>
-
         <View style={{ gap: spacing[2] }}>
           <Text variant="caption" color="secondary">
             Categoría

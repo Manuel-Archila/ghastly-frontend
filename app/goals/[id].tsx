@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { contributeToGoal } from "@/data/api/commitments";
 import { ApiError } from "@/data/api/client";
@@ -13,7 +13,6 @@ import { useTokens } from "@/ui/tokens";
 
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const { spacing, colors } = useTokens();
 
   const [goal, setGoal] = useState<Goal | undefined>();
@@ -63,7 +62,8 @@ export default function GoalDetailScreen() {
 
   if (!goal) {
     return (
-      <Screen style={{ paddingTop: spacing[5] }}>
+      <Screen>
+        <Stack.Screen options={{ title: "Meta" }} />
         <Text variant="body" color="secondary">
           Cargando…
         </Text>
@@ -74,10 +74,9 @@ export default function GoalDetailScreen() {
   const pct = Math.min(100, Math.round((goal.currentAmountCents / goal.targetAmountCents) * 100));
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: goal.name }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Button label="Volver" variant="ghost" fullWidth={false} onPress={() => router.back()} />
-        <Text variant="title1">{goal.name}</Text>
         <View>
           <Text variant="display">{new Money(goal.currentAmountCents).format()}</Text>
           <Text variant="caption" color="secondary">

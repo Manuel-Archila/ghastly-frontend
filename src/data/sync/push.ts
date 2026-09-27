@@ -1,8 +1,10 @@
 import { asc, eq, inArray, notInArray } from "drizzle-orm";
 
+import { getBudgetItemRemote } from "@/data/api/budgets";
 import { api, ApiError } from "@/data/api/client";
 import { db } from "@/data/db/client";
-import { outboxMutations } from "@/data/db/schema";
+import { budgetItems, outboxMutations } from "@/data/db/schema";
+import { softDelete } from "@/data/sync/pull";
 import { getOrCreateDeviceId } from "@/lib/deviceId";
 
 /**
@@ -63,6 +65,58 @@ interface SyncPushResponse {
   next_seq: number;
 }
 
+/**
+ * Conflictos de negocio: el servidor rechazó la mutación y NO se reintenta
+ * (se saca del outbox). Como todo se escribió local-first, el estado local
+ * quedó adelantado del servidor; hay que dejarlo igual que él:
+ *  - `DELETED_ON_SERVER`: gana el delete → soft-delete local.
+ *  - El resto (categoría repetida / no de gasto / inexistente) afecta a un
+ *    ítem de presupuesto: se reconcilia contra el servidor (si el ítem no
+ *    existe allá, se borra local; si existe, se restaura su estado).
+ */
+const BUDGET_ITEM_REJECTIONS = new Set([
+  "BUDGET_ITEM_CATEGORY_TAKEN",
+  "BUDGET_REQUIRES_EXPENSE_CATEGORY",
+  "CATEGORY_NOT_FOUND",
+]);
+
+async function reconcileBudgetItem(itemId: string): Promise<void> {
+  const local = (await db.select().from(budgetItems).where(eq(budgetItems.id, itemId)).limit(1))[0];
+  if (!local) return;
+  try {
+    const remote = await getBudgetItemRemote(local.budgetId, itemId);
+    await db
+      .update(budgetItems)
+      .set({
+        categoryId: remote.category_id,
+        amountCents: remote.amount_cents,
+        sortOrder: remote.sort_order,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(budgetItems.id, itemId));
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) {
+      await softDelete("budget_item", itemId);
+    }
+    // Sin red: queda como está; el próximo pull/edición lo corrige.
+  }
+}
+
+async function handleConflicts(
+  conflicts: SyncConflict[],
+  entityTypeByMutation: Map<string, string>,
+): Promise<void> {
+  for (const c of conflicts) {
+    const entityType = entityTypeByMutation.get(c.client_mutation_id);
+    if (!entityType) continue;
+    if (c.reason === "DELETED_ON_SERVER") {
+      await softDelete(entityType, c.entity_id);
+    } else if (entityType === "budget_item" && BUDGET_ITEM_REJECTIONS.has(c.reason)) {
+      await reconcileBudgetItem(c.entity_id);
+    }
+  }
+}
+
 const BATCH_SIZE = 200;
 const MAX_ATTEMPTS = 5;
 
@@ -111,6 +165,11 @@ export async function pushOutbox(): Promise<{ applied: number; conflicts: number
       }
       break; // se reintenta en el próximo ciclo de sync
     }
+
+    await handleConflicts(
+      response.conflicts,
+      new Map(sendable.map((m) => [m.clientMutationId, m.entityType])),
+    );
 
     const resolved = new Set([
       ...response.applied,

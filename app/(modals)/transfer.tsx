@@ -57,6 +57,12 @@ export default function TransferScreen() {
           <Button label="Cerrar" variant="ghost" fullWidth={false} onPress={() => router.back()} />
         </View>
 
+        <View style={{ flexDirection: "row", gap: spacing[2] }}>
+          <Chip label="Gasto" onPress={() => router.replace("/(modals)/quick-add")} />
+          <Chip label="Ingreso" onPress={() => router.replace("/(modals)/quick-add?kind=income")} />
+          <Chip label="Transferencia" selected />
+        </View>
+
         <View style={{ alignItems: "center", paddingVertical: spacing[3] }}>
           <Text variant="display" style={{ color: colors.transfer.fg }}>
             {cents !== null ? `${new Money(cents).format()} →` : "Q 0.00 →"}

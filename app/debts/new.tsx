@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ScrollView } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 
 import { createDebt } from "@/data/api/commitments";
 import { ApiError } from "@/data/api/client";
@@ -43,9 +43,9 @@ export default function NewDebtScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Nueva deuda" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Text variant="title1">Nueva deuda</Text>
         <Input label="Nombre" value={name} onChangeText={setName} placeholder="Préstamo carro" />
         <Input
           label="Monto original"

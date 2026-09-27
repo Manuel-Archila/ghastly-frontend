@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { recordDebtPayment } from "@/data/api/commitments";
 import { ApiError, api } from "@/data/api/client";
@@ -21,7 +21,6 @@ interface AmortRow {
 
 export default function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
   const { spacing, colors } = useTokens();
 
   const [debt, setDebt] = useState<Debt | undefined>();
@@ -76,7 +75,8 @@ export default function DebtDetailScreen() {
 
   if (!debt) {
     return (
-      <Screen style={{ paddingTop: spacing[5] }}>
+      <Screen>
+        <Stack.Screen options={{ title: "Deuda" }} />
         <Text variant="body" color="secondary">
           Cargando…
         </Text>
@@ -85,10 +85,9 @@ export default function DebtDetailScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: debt.name }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Button label="Volver" variant="ghost" fullWidth={false} onPress={() => router.back()} />
-        <Text variant="title1">{debt.name}</Text>
         <View>
           <Text variant="caption" color="secondary">
             Saldo

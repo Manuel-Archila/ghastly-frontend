@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ScrollView, Switch, View } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 
 import { useNotificationPreferences } from "@/features/notifications/useNotificationPreferences";
 import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
@@ -71,7 +71,8 @@ export default function NotificationPreferencesScreen() {
 
   if (isLoading) {
     return (
-      <Screen style={{ paddingTop: spacing[5] }}>
+      <Screen>
+        <Stack.Screen options={{ title: "Notificaciones" }} />
         <Text variant="body" color="secondary">
           Cargando…
         </Text>
@@ -80,11 +81,9 @@ export default function NotificationPreferencesScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Notificaciones" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[5], paddingBottom: spacing[8] }}>
-        <Button label="Volver" variant="ghost" fullWidth={false} onPress={() => router.back()} />
-        <Text variant="title1">Notificaciones</Text>
-
         <View style={{ gap: spacing[2] }}>
           <Text variant="body">Avisar cuando el gasto llegue a</Text>
           <Text variant="caption" color="tertiary">

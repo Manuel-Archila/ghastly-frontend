@@ -73,3 +73,68 @@ export function expectedIncome(
   if (basis === "previous_month") return params.previousMonthCents;
   return params.avg3mCents;
 }
+
+// ── Jerarquía de presupuesto ────────────────────────────────────────────
+// La jerarquía NO se guarda en el ítem: se deriva de `categories.parentId`
+// (máximo 2 niveles). El tope del padre solo ADVIERTE, nunca bloquea.
+
+/**
+ * Para cada categoría presupuestada, su `parent_id` SOLO si el padre
+ * también tiene ítem en el presupuesto; si no, `null` (queda como raíz).
+ */
+export function effectiveParents(
+  budgetedCategoryParents: Map<string, string | null>,
+): Map<string, string | null> {
+  const result = new Map<string, string | null>();
+  for (const [category, parent] of budgetedCategoryParents) {
+    result.set(category, parent !== null && budgetedCategoryParents.has(parent) ? parent : null);
+  }
+  return result;
+}
+
+/** Gasto propio de la categoría + el de sus subcategorías. */
+export function rollupSpent(
+  category: string,
+  childCategories: string[],
+  spentByCategory: Map<string, number>,
+): number {
+  let total = spentByCategory.get(category) ?? 0;
+  for (const child of childCategories) total += spentByCategory.get(child) ?? 0;
+  return total;
+}
+
+/** Cuánto se pasan los hijos del tope del padre (0 si caben). */
+export function childrenExcess(parentCents: number, childrenCents: number[]): number {
+  const sum = childrenCents.reduce((a, b) => a + b, 0);
+  return Math.max(0, sum - parentCents);
+}
+
+export interface HierarchySummary {
+  childrenBudgeted: Map<string, number>;
+  /** Solo padres con exceso > 0. */
+  childrenExcess: Map<string, number>;
+  /** Suma únicamente de ítems raíz: los hijos son un reparto dentro del padre. */
+  rootTotalCents: number;
+}
+
+export function summarizeHierarchy(
+  budgeted: Map<string, number>,
+  parentOf: Map<string, string | null>,
+): HierarchySummary {
+  const childrenBudgeted = new Map<string, number>();
+  let rootTotalCents = 0;
+  for (const [category, cents] of budgeted) {
+    const parent = parentOf.get(category) ?? null;
+    if (parent === null) {
+      rootTotalCents += cents;
+    } else {
+      childrenBudgeted.set(parent, (childrenBudgeted.get(parent) ?? 0) + cents);
+    }
+  }
+  const excess = new Map<string, number>();
+  for (const [parent, sum] of childrenBudgeted) {
+    const e = childrenExcess(budgeted.get(parent) ?? 0, [sum]);
+    if (e > 0) excess.set(parent, e);
+  }
+  return { childrenBudgeted, childrenExcess: excess, rootTotalCents };
+}

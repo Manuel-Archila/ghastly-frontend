@@ -11,3 +11,5 @@ export { Icon } from "./Icon";
 export { FadeIn } from "./FadeIn";
 export { SegmentedControl } from "./SegmentedControl";
 export type { SegmentedControlOption } from "./SegmentedControl";
+export { Notice } from "./Notice";
+export { ListRow } from "./ListRow";

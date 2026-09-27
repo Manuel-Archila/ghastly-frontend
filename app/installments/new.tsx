@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 
 import { createInstallmentPlan } from "@/data/api/commitments";
 import { ApiError } from "@/data/api/client";
@@ -61,9 +61,9 @@ export default function NewInstallmentPlanScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Nuevo plan de cuotas" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Text variant="title1">Nuevo plan de cuotas</Text>
         <Input label="Descripción" value={description} onChangeText={setDescription} placeholder="Celular" />
         <Input
           label="Monto total"

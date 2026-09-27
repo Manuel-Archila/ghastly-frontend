@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 
 import { createRecurringRule } from "@/data/api/commitments";
 import { ApiError } from "@/data/api/client";
@@ -77,9 +77,9 @@ export default function NewSubscriptionScreen() {
   }
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Nueva suscripción" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Text variant="title1">Nueva suscripción</Text>
         <Input label="Nombre" value={name} onChangeText={setName} placeholder="Netflix" />
         <Input
           label="Monto"

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { Pressable, ScrollView, View, type ViewStyle } from "react-native";
+import { Stack, useFocusEffect } from "expo-router";
 
 import type { Ionicons } from "@expo/vector-icons";
 
@@ -39,6 +39,37 @@ function dotColor(
   }
 }
 
+/** Cada tipo de compromiso también se distingue por FORMA, no solo color
+ * (CLAUDE.md "nunca solo color" / DESIGN.md Sign-and-Icon Rule) — a este
+ * tamaño un ícono real no se lee, pero un círculo, un cuadrado, un rombo y
+ * un anillo sí se distinguen sin depender del matiz. */
+const DOT_SIZE = 6;
+
+function dotStyle(kind: CommitmentEvent["kind"], color: string): ViewStyle {
+  const base: ViewStyle = { width: DOT_SIZE, height: DOT_SIZE };
+  switch (kind) {
+    case "recurring":
+      return { ...base, borderRadius: DOT_SIZE / 2, backgroundColor: color }; // círculo
+    case "installment":
+      return { ...base, borderRadius: 1, backgroundColor: color }; // cuadrado
+    case "card_statement":
+      return {
+        ...base,
+        borderRadius: 1,
+        backgroundColor: color,
+        transform: [{ rotate: "45deg" }],
+      }; // rombo
+    case "card_payment":
+      return {
+        ...base,
+        borderRadius: DOT_SIZE / 2,
+        borderWidth: 1.5,
+        borderColor: color,
+        backgroundColor: "transparent",
+      }; // anillo
+  }
+}
+
 function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split("-").map(Number);
   const d = new Date(Date.UTC(y, m - 1 + delta, 1));
@@ -51,7 +82,7 @@ function shiftMonth(month: string, delta: number): string {
  * compromisos son a futuro — meses pasados salen vacíos.
  */
 export default function CalendarScreen() {
-  const { spacing, colors, radii } = useTokens();
+  const { spacing, colors, radii, minTouchTarget } = useTokens();
   const today = todayIso();
   const [visibleMonth, setVisibleMonth] = useState(today.slice(0, 7));
   const [byDate, setByDate] = useState<Map<string, CommitmentEvent[]>>(new Map());
@@ -98,30 +129,33 @@ export default function CalendarScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ title: "Calendario" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4] }}>
-        <Text variant="title1">Calendario</Text>
-
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Mes anterior"
             onPress={() => {
               setSelectedDay(null);
               setVisibleMonth((prev) => shiftMonth(prev, -1));
             }}
-            hitSlop={12}
+            style={{ minWidth: minTouchTarget, minHeight: minTouchTarget, alignItems: "center", justifyContent: "center" }}
           >
-            <Text variant="title2">‹</Text>
+            <Icon name="chevron-back" size={22} color={colors.text.primary} />
           </Pressable>
           <Text variant="title2">
             {MONTHS[mm - 1]} {yy}
           </Text>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Mes siguiente"
             onPress={() => {
               setSelectedDay(null);
               setVisibleMonth((prev) => shiftMonth(prev, 1));
             }}
-            hitSlop={12}
+            style={{ minWidth: minTouchTarget, minHeight: minTouchTarget, alignItems: "center", justifyContent: "center" }}
           >
-            <Text variant="title2">›</Text>
+            <Icon name="chevron-forward" size={22} color={colors.text.primary} />
           </Pressable>
         </View>
 
@@ -146,7 +180,7 @@ export default function CalendarScreen() {
 
         <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
           {cells.map((iso, i) => {
-            if (!iso) return <View key={i} style={{ width: `${100 / 7}%`, height: 52 }} />;
+            if (!iso) return <View key={i} style={{ width: `${100 / 7}%`, minHeight: 52 }} />;
             const dayNum = Number(iso.slice(8, 10));
             const events = byDate.get(iso) ?? [];
             const isToday = iso === today;
@@ -154,10 +188,17 @@ export default function CalendarScreen() {
             return (
               <Pressable
                 key={i}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  events.length > 0
+                    ? `Día ${dayNum}, ${events.length} compromiso${events.length > 1 ? "s" : ""}`
+                    : `Día ${dayNum}`
+                }
+                accessibilityState={{ selected: isSelected }}
                 onPress={() => setSelectedDay(isSelected ? null : iso)}
                 style={{
                   width: `${100 / 7}%`,
-                  height: 52,
+                  minHeight: 52,
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 3,
@@ -187,17 +228,9 @@ export default function CalendarScreen() {
                     {dayNum}
                   </Text>
                 </View>
-                <View style={{ flexDirection: "row", gap: 2, height: 5 }}>
+                <View style={{ flexDirection: "row", gap: 3, height: DOT_SIZE }}>
                   {events.slice(0, 3).map((e, j) => (
-                    <View
-                      key={j}
-                      style={{
-                        width: 5,
-                        height: 5,
-                        borderRadius: 2.5,
-                        backgroundColor: dotColor(e.kind, colors),
-                      }}
-                    />
+                    <View key={j} style={dotStyle(e.kind, dotColor(e.kind, colors))} />
                   ))}
                 </View>
               </Pressable>

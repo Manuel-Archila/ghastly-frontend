@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { PieChart } from "react-native-gifted-charts";
-import { useRouter } from "expo-router";
+// Import directo al submódulo — ver la nota en reports/trends.tsx: evita
+// que el barrel de la librería arrastre BarChart y su dependencia opcional
+// de expo-linear-gradient, que esta app no usa ni tiene instalada.
+import { PieChart } from "react-native-gifted-charts/dist/PieChart";
+import { Stack, useRouter } from "expo-router";
 
 import { ReportsTabs } from "@/features/reports/ReportsTabs";
 import { useCategoryBreakdown } from "@/features/reports/useCategoryBreakdown";
 import { categoryColorFor } from "@/lib/categoryColor";
 import { Money } from "@/domain/money";
-import { Button, Chip, FadeIn, Screen, Skeleton, Text } from "@/ui/primitives";
+import { Button, Chip, FadeIn, Icon, Screen, Skeleton, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 const MAX_SLICES = 6;
@@ -30,7 +33,7 @@ function currentMonthString(): string {
 
 export default function ReportsCategoriesScreen() {
   const router = useRouter();
-  const { spacing, colors } = useTokens();
+  const { spacing, colors, minTouchTarget } = useTokens();
   const [month, setMonth] = useState(currentMonthString());
   const [kind, setKind] = useState<"expense" | "income">("expense");
 
@@ -49,33 +52,36 @@ export default function ReportsCategoriesScreen() {
   ];
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Categorías" }} />
       <View style={{ paddingBottom: spacing[3] }}>
         <ReportsTabs active="categories" />
       </View>
 
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Text variant="title1">Categorías</Text>
-
         <View style={{ flexDirection: "row", gap: spacing[2] }}>
           <Chip label="Gasto" selected={kind === "expense"} onPress={() => setKind("expense")} />
           <Chip label="Ingreso" selected={kind === "income"} onPress={() => setKind("income")} />
         </View>
 
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Button
-            label="‹"
-            variant="ghost"
-            fullWidth={false}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Mes anterior"
             onPress={() => setMonth((m) => shiftMonth(m, -1))}
-          />
+            style={{ minWidth: minTouchTarget, minHeight: minTouchTarget, alignItems: "center", justifyContent: "center" }}
+          >
+            <Icon name="chevron-back" size={22} color={colors.text.primary} />
+          </Pressable>
           <Text variant="bodyStrong">{month}</Text>
-          <Button
-            label="›"
-            variant="ghost"
-            fullWidth={false}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Mes siguiente"
             onPress={() => setMonth((m) => shiftMonth(m, 1))}
-          />
+            style={{ minWidth: minTouchTarget, minHeight: minTouchTarget, alignItems: "center", justifyContent: "center" }}
+          >
+            <Icon name="chevron-forward" size={22} color={colors.text.primary} />
+          </Pressable>
         </View>
 
         {isLoading ? (
@@ -104,6 +110,8 @@ export default function ReportsCategoriesScreen() {
               {top.map((item, index) => (
                 <FadeIn key={item.category_id} delay={index * 30}>
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${item.category_name}, ${item.percent_of_total}%, ${new Money(item.amount_cents).format()}`}
                     onPress={() =>
                       router.push({
                         pathname: "/(tabs)/transactions",

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { listMostUsedExpenseCategories, type Category } from "@/data/repositories/categories";
@@ -10,7 +10,9 @@ import {
   findPossibleDuplicate,
 } from "@/data/repositories/transactions";
 import { Money, parseCentsFromInput } from "@/domain/money";
+import type { TemplateOut } from "@/data/api/templates";
 import { triggerSync } from "@/features/sync/sync-manager";
+import { loadCachedTemplates, refreshTemplateCache } from "@/lib/templateCache";
 import { Button, Chip, Input, KeypadNumeric, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
@@ -27,7 +29,10 @@ export default function QuickAddScreen() {
   const router = useRouter();
   const { spacing, colors } = useTokens();
 
-  const [kind, setKind] = useState<"expense" | "income">("expense");
+  const params = useLocalSearchParams<{ kind?: string }>();
+  const [kind, setKind] = useState<"expense" | "income">(
+    params.kind === "income" ? "income" : "expense",
+  );
   const [cents, setCents] = useState(0);
   const [description, setDescription] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -38,6 +43,7 @@ export default function QuickAddScreen() {
   const [warning, setWarning] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resetKey, setResetKey] = useState(0);
+  const [templates, setTemplates] = useState<TemplateOut[]>([]);
 
   // La transacción sigue SIEMPRE la moneda de la cuenta elegida — no es un
   // campo libre (evita el caso raro, que el backend permite pero rompería
@@ -64,6 +70,41 @@ export default function QuickAddScreen() {
       cancelled = true;
     };
   }, []);
+
+  // Chips de plantillas: primero la caché (instantáneo, funciona sin red) y
+  // en segundo plano se refresca. Solo las de una cuenta local en GTQ: en
+  // otra moneda hace falta la tasa y ya no sería un tap.
+  useEffect(() => {
+    let cancelled = false;
+    void loadCachedTemplates().then((cached) => !cancelled && setTemplates(cached));
+    void refreshTemplateCache().then((fresh) => fresh && !cancelled && setTemplates(fresh));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const usableTemplates = templates
+    .filter((t) => accounts.some((a) => a.id === t.account_id && a.currency === "GTQ"))
+    .slice(0, 6);
+
+  /** Un tap: guarda el gasto ya armado y cierra. */
+  async function onTemplate(t: TemplateOut) {
+    if (busy) return;
+    setBusy(true);
+    await createTransactionLocally({
+      accountId: t.account_id,
+      categoryId: t.category_id,
+      kind: t.kind,
+      amountCents: t.amount_cents,
+      date: today(),
+      description: t.description ?? t.name,
+      currency: "GTQ",
+      templateId: t.id,
+    });
+    triggerSync();
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    router.back();
+  }
 
   const canSave = cents > 0 && accountId !== null && !busy && (!needsFxRate || fxRate !== null);
 
@@ -118,9 +159,27 @@ export default function QuickAddScreen() {
           <View style={{ flexDirection: "row", gap: spacing[2] }}>
             <Chip label="Gasto" selected={kind === "expense"} onPress={() => setKind("expense")} />
             <Chip label="Ingreso" selected={kind === "income"} onPress={() => setKind("income")} />
+            {/* La transferencia tiene su propia pantalla (dos cuentas, sin categoría). */}
+            <Chip label="Transferencia" onPress={() => router.replace("/(modals)/transfer")} />
           </View>
           <Button label="Cerrar" variant="ghost" fullWidth={false} onPress={() => router.back()} />
         </View>
+
+        {usableTemplates.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <View style={{ flexDirection: "row", gap: spacing[2] }}>
+              {usableTemplates.map((t) => (
+                <Chip
+                  key={t.id}
+                  label={`${t.name} · ${new Money(t.amount_cents).format()}`}
+                  accessibilityLabel={`Guardar ${t.name}, ${new Money(t.amount_cents).format()}`}
+                  disabled={busy}
+                  onPress={() => void onTemplate(t)}
+                />
+              ))}
+            </View>
+          </ScrollView>
+        ) : null}
 
         <View style={{ alignItems: "center", paddingVertical: spacing[3] }}>
           <Text

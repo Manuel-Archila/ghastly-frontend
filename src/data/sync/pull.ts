@@ -105,7 +105,14 @@ async function applyCategory(p: Record<string, unknown>): Promise<void> {
       target: categories.id,
       set: {
         name: p.name as string,
+        // Padre/orden pueden cambiar por REST o desde otro dispositivo.
+        parentId: (p.parent_id as string | null) ?? null,
+        icon: (p.icon as string | null) ?? null,
+        color: (p.color as string | null) ?? null,
+        sortOrder: (p.sort_order as number | undefined) ?? 0,
+        isTaxDeductible: (p.is_tax_deductible as boolean | undefined) ?? false,
         isArchived: (p.is_archived as boolean | undefined) ?? false,
+        updatedAt: (p.updated_at as string | undefined) ?? now,
       },
     });
 }
@@ -196,8 +203,12 @@ async function applyBudgetItem(p: Record<string, unknown>): Promise<void> {
     .onConflictDoUpdate({
       target: budgetItems.id,
       set: {
+        // La categoría del ítem ahora es editable en el servidor.
+        categoryId: p.category_id as string,
         amountCents: p.amount_cents as number,
         rolloverEnabled: (p.rollover_enabled as boolean | null) ?? null,
+        sortOrder: (p.sort_order as number | undefined) ?? 0,
+        updatedAt: now, // el payload del servidor no trae created_at/updated_at
       },
     });
 }
@@ -308,7 +319,7 @@ async function applyGoal(p: Record<string, unknown>): Promise<void> {
   await db.insert(goals).values(v).onConflictDoUpdate({ target: goals.id, set: v });
 }
 
-async function softDelete(entityType: string, id: string): Promise<void> {
+export async function softDelete(entityType: string, id: string): Promise<void> {
   const now = new Date().toISOString();
   if (entityType === "account") {
     await db.update(accounts).set({ deletedAt: now }).where(eq(accounts.id, id));

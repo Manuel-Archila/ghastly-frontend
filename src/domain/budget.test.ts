@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  childrenExcess,
   computeItemProgress,
   computeRolloverOut,
+  effectiveParents,
   expectedIncome,
   projectPeriodEnd,
+  rollupSpent,
   suggestedDailyPace,
+  summarizeHierarchy,
 } from "./budget";
 
 describe("computeItemProgress", () => {
@@ -57,5 +61,102 @@ describe("expectedIncome", () => {
     expect(expectedIncome("fixed", p)).toBe(500_000);
     expect(expectedIncome("previous_month", p)).toBe(480_000);
     expect(expectedIncome("avg_3m", p)).toBe(470_000);
+  });
+});
+
+describe("effectiveParents", () => {
+  it("un hijo sin padre presupuestado es raíz", () => {
+    const m = effectiveParents(new Map([["pizza", "comida"]]));
+    expect(m.get("pizza")).toBeNull();
+  });
+
+  it("un hijo con padre presupuestado se anida", () => {
+    const m = effectiveParents(
+      new Map<string, string | null>([
+        ["comida", null],
+        ["pizza", "comida"],
+      ]),
+    );
+    expect(m.get("pizza")).toBe("comida");
+    expect(m.get("comida")).toBeNull();
+  });
+});
+
+describe("rollupSpent", () => {
+  it("suma gasto propio + subcategorías", () => {
+    const spent = new Map([
+      ["comida", 1_000],
+      ["pizza", 400],
+      ["cafe", 250],
+      ["otra", 9_999],
+    ]);
+    expect(rollupSpent("comida", ["pizza", "cafe"], spent)).toBe(1_650);
+  });
+
+  it("sin gasto ni hijos es 0", () => {
+    expect(rollupSpent("x", [], new Map())).toBe(0);
+  });
+});
+
+describe("childrenExcess", () => {
+  it("hijos que caben: 0", () => {
+    expect(childrenExcess(10_000, [4_000, 5_000])).toBe(0);
+  });
+
+  it("hijos que se pasan: la diferencia", () => {
+    expect(childrenExcess(10_000, [6_000, 7_000])).toBe(3_000);
+  });
+});
+
+describe("summarizeHierarchy", () => {
+  it("presupuesto plano queda igual", () => {
+    const s = summarizeHierarchy(
+      new Map([
+        ["a", 100],
+        ["b", 200],
+      ]),
+      new Map([
+        ["a", null],
+        ["b", null],
+      ]),
+    );
+    expect(s.rootTotalCents).toBe(300);
+    expect(s.childrenBudgeted.size).toBe(0);
+    expect(s.childrenExcess.size).toBe(0);
+  });
+
+  it("hijos que caben: el total son solo las raíces", () => {
+    const s = summarizeHierarchy(
+      new Map([
+        ["comida", 10_000],
+        ["pizza", 4_000],
+        ["cafe", 3_000],
+      ]),
+      new Map<string, string | null>([
+        ["comida", null],
+        ["pizza", "comida"],
+        ["cafe", "comida"],
+      ]),
+    );
+    expect(s.rootTotalCents).toBe(10_000);
+    expect(s.childrenBudgeted.get("comida")).toBe(7_000);
+    expect(s.childrenExcess.has("comida")).toBe(false);
+  });
+
+  it("hijos que se pasan reportan el exceso", () => {
+    const s = summarizeHierarchy(
+      new Map([
+        ["comida", 5_000],
+        ["pizza", 4_000],
+        ["cafe", 3_000],
+      ]),
+      new Map<string, string | null>([
+        ["comida", null],
+        ["pizza", "comida"],
+        ["cafe", "comida"],
+      ]),
+    );
+    expect(s.childrenExcess.get("comida")).toBe(2_000);
+    expect(s.rootTotalCents).toBe(5_000);
   });
 });

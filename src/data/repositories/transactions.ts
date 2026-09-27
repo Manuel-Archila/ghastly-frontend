@@ -27,6 +27,8 @@ export interface CreateTransactionInput {
   /** Requerida por el backend si `currency` no es GTQ (caso 4) — se congela,
    * nunca se recalcula. */
   fxRate?: number;
+  /** Si nace de una plantilla: el servidor solo incrementa su `use_count`. */
+  templateId?: string;
 }
 
 async function applyBalanceDelta(
@@ -99,6 +101,7 @@ export async function createTransactionLocally(input: CreateTransactionInput): P
         fx_rate: input.fxRate ?? undefined,
         date: input.date,
         description: input.description ?? null,
+        ...(input.templateId ? { template_id: input.templateId } : {}),
       },
       clientUpdatedAt: now,
       createdAt: now,

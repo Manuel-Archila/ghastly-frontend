@@ -1,11 +1,18 @@
 import { useCallback, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { Stack, useFocusEffect } from "expo-router";
 
 import { ApiError } from "@/data/api/client";
-import { closeBudgetPeriod, getBudgetHistory, type HistoryPeriod } from "@/data/api/budgets";
+import {
+  closeBudgetPeriod,
+  getBudgetHistory,
+  reopenBudgetPeriod,
+  type HistoryPeriod,
+} from "@/data/api/budgets";
+import { errorMessageFor } from "@/data/api/error-messages";
 import { getActiveBudget } from "@/data/repositories/budgets";
 import { Money } from "@/domain/money";
+import { confirmDestructive } from "@/ui/confirm";
 import { Button, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
@@ -39,7 +46,7 @@ export default function BudgetHistoryScreen() {
       setPeriods(p);
       setNote(null);
     } catch (e) {
-      setNote(e instanceof ApiError ? e.message : "No se pudo cargar el historial.");
+      setNote(errorMessageFor(e, "No se pudo cargar el historial."));
     }
     setLoaded(true);
   }, []);
@@ -60,7 +67,37 @@ export default function BudgetHistoryScreen() {
       setNote(`Mes ${result.month} cerrado.`);
       await load();
     } catch (e) {
-      setNote(e instanceof ApiError ? e.message : "No se pudo cerrar el mes.");
+      setNote(errorMessageFor(e, "No se pudo cerrar el mes."));
+    }
+    setBusy(false);
+  }
+
+  // Solo el mes cerrado más reciente se puede reabrir: si hay uno posterior
+  // cerrado, el servidor responde `LATER_PERIOD_CLOSED`.
+  const latestClosed = periods.reduce<string | null>(
+    (latest, p) => (latest === null || p.month > latest ? p.month : latest),
+    null,
+  );
+
+  async function onReopen(month: string) {
+    const ok = await confirmDestructive(
+      `Reabrir ${month}`,
+      "El mes se vuelve a calcular en vivo: se pierde el cierre congelado y su arrastre al mes siguiente.",
+      "Reabrir",
+    );
+    if (!ok) return;
+    const budget = await getActiveBudget();
+    if (!budget) return;
+    setBusy(true);
+    setNote(null);
+    try {
+      await reopenBudgetPeriod(budget.id, month);
+      setNote(`Mes ${month} reabierto.`);
+      await load();
+    } catch (e) {
+      setNote(errorMessageFor(e, "No se pudo reabrir el mes."));
+      // Si ya no estaba cerrado, la lista quedó vieja: se refresca.
+      if (e instanceof ApiError && e.code === "PERIOD_NOT_FOUND") await load();
     }
     setBusy(false);
   }
@@ -69,9 +106,8 @@ export default function BudgetHistoryScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ title: "Historial" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[5], paddingVertical: spacing[4] }}>
-        <Text variant="title1">Historial</Text>
-
         {!alreadyClosed ? (
           <Button
             label={busy ? "Cerrando…" : `Cerrar ${previousMonth()}`}
@@ -124,6 +160,15 @@ export default function BudgetHistoryScreen() {
                   </Text>
                 </View>
               ))}
+              {period.month === latestClosed ? (
+                <Button
+                  label="Reabrir mes"
+                  variant="secondary"
+                  fullWidth={false}
+                  disabled={busy}
+                  onPress={() => void onReopen(period.month)}
+                />
+              ) : null}
             </View>
           );
         })}

@@ -181,6 +181,23 @@ export default function TodayScreen() {
           </Card>
         </View>
 
+        {dashboard.receivable_cents > 0 ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Me deben ${new Money(dashboard.receivable_cents).format()}`}
+            onPress={() => router.push("/receivables")}
+          >
+            <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing[2] }}>
+              <Icon name="people-outline" />
+              <Text variant="body" style={{ flex: 1 }}>
+                Me deben
+              </Text>
+              <Text variant="bodyStrong">{new Money(dashboard.receivable_cents).format()}</Text>
+              <Icon name="chevron-forward" size={16} />
+            </Card>
+          </Pressable>
+        ) : null}
+
         {accounts.length > 0 ? (
           <View style={{ gap: spacing[2] }}>
             <Text variant="caption" color="secondary">

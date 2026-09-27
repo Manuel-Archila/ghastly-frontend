@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 
 import { createAccountLocally } from "@/data/repositories/accounts";
 import { parseCentsFromInput } from "@/domain/money";
@@ -42,8 +42,8 @@ export default function NewAccountScreen() {
   }
 
   return (
-    <Screen style={{ gap: spacing[4], paddingTop: spacing[5] }}>
-      <Text variant="title1">Nueva cuenta</Text>
+    <Screen style={{ gap: spacing[4] }}>
+      <Stack.Screen options={{ title: "Nueva cuenta" }} />
       <Input label="Nombre" value={name} onChangeText={setName} placeholder="BAC Monetaria" />
 
       <View style={{ gap: spacing[2] }}>

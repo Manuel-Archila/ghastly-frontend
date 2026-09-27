@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
+import { Stack } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import { LineChart } from "react-native-gifted-charts";
+// Import directo al submódulo, no al barrel de la librería: el barrel
+// re-exporta BarChart, que carga un wrapper que hace `require('expo-linear-
+// -gradient')` a nivel de módulo y explota si el paquete no está instalado
+// — algo que esta app nunca necesita porque no usa BarChart. LineChart usa
+// el gradiente de `react-native-svg` (ya instalado), no ese wrapper.
+import { LineChart } from "react-native-gifted-charts/dist/LineChart";
 
 import { getTrends, type TrendsOut } from "@/data/api/reports";
 import { Money } from "@/domain/money";
@@ -26,14 +32,13 @@ export default function ReportsTrendsScreen() {
   const periods = data?.periods ?? [];
 
   return (
-    <Screen style={{ paddingTop: spacing[5] }}>
+    <Screen>
+      <Stack.Screen options={{ title: "Tendencias" }} />
       <View style={{ paddingBottom: spacing[3] }}>
         <ReportsTabs active="trends" />
       </View>
 
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <Text variant="title1">Tendencias</Text>
-
         <View style={{ flexDirection: "row", gap: spacing[2] }}>
           {RANGES.map((r) => (
             <Button

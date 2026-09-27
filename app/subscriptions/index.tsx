@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import { computeSubscriptionSummary, type SubscriptionSummary } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
@@ -20,9 +20,8 @@ export default function SubscriptionsScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ title: "Suscripciones" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4] }}>
-        <Text variant="title1">Suscripciones</Text>
-
         {summary ? (
           <View style={{ gap: spacing[1] }}>
             <Text variant="display">{new Money(summary.totalMonthlyCents).format()}/mes</Text>

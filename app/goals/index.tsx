@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import { listGoals, type Goal } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
@@ -20,8 +20,8 @@ export default function GoalsScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ title: "Metas" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4] }}>
-        <Text variant="title1">Metas</Text>
         <Button label="Nueva meta" onPress={() => router.push("/goals/new")} />
 
         {goals.map((g, index) => {
@@ -29,6 +29,8 @@ export default function GoalsScreen() {
           return (
             <FadeIn key={g.id} delay={index * 30}>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${g.name}, ${pct}% de ${new Money(g.targetAmountCents).format()}`}
                 onPress={() => router.push(`/goals/${g.id}`)}
                 style={(state) => [
                   { gap: spacing[1], paddingVertical: spacing[2], opacity: state.pressed ? 0.6 : 1 },

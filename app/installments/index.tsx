@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import {
   computeInstallmentCommitment,
@@ -28,9 +28,8 @@ export default function InstallmentsScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ title: "Cuotas" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4] }}>
-        <Text variant="title1">Cuotas</Text>
-
         <View style={{ flexDirection: "row", gap: spacing[4] }}>
           <View style={{ flex: 1 }}>
             <Text variant="caption" color="secondary">
@@ -51,6 +50,8 @@ export default function InstallmentsScreen() {
         {plans.map((plan, index) => (
           <FadeIn key={plan.id} delay={index * 30}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${plan.description}, ${new Money(plan.totalAmountCents).format()}`}
               onPress={() => router.push(`/installments/${plan.id}`)}
               style={(state) => [
                 {

@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import { listDebts, type Debt } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
@@ -22,8 +22,8 @@ export default function DebtsScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ title: "Deudas" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4] }}>
-        <Text variant="title1">Deudas</Text>
         <View>
           <Text variant="caption" color="secondary">
             Total que debés
@@ -37,6 +37,8 @@ export default function DebtsScreen() {
         {debts.map((d, index) => (
           <FadeIn key={d.id} delay={index * 30}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`${d.name}, saldo ${new Money(d.balanceCents).format()}`}
               onPress={() => router.push(`/debts/${d.id}`)}
               style={(state) => [
                 {
