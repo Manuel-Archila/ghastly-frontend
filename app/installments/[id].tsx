@@ -1,9 +1,11 @@
 import { useCallback, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
-import { payInstallment } from "@/data/api/commitments";
+import { deleteInstallmentPlan, payInstallment, updateInstallmentPlan } from "@/data/api/commitments";
 import { ApiError } from "@/data/api/client";
+import { errorMessageFor } from "@/data/api/error-messages";
+import { listCategories, type Category } from "@/data/repositories/categories";
 import {
   getInstallmentPlan,
   listInstallmentsForPlan,
@@ -12,22 +14,38 @@ import {
 } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
-import { Button, FadeIn, Icon, Screen, Text } from "@/ui/primitives";
+import { confirmDestructive } from "@/ui/confirm";
+import { Button, Chip, FadeIn, Icon, Input, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function InstallmentPlanScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { spacing, colors } = useTokens();
 
   const [plan, setPlan] = useState<InstallmentPlan | undefined>();
   const [rows, setRows] = useState<Installment[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [description, setDescription] = useState("");
+  const [merchant, setMerchant] = useState("");
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [p, list] = await Promise.all([getInstallmentPlan(id), listInstallmentsForPlan(id)]);
+    const [p, list, cats] = await Promise.all([
+      getInstallmentPlan(id),
+      listInstallmentsForPlan(id),
+      listCategories("expense"),
+    ]);
     setPlan(p);
     setRows(list);
+    setCategories(cats);
+    if (p) {
+      setDescription(p.description);
+      setMerchant(p.merchant ?? "");
+      setCategoryId(p.categoryId);
+    }
   }, [id]);
 
   useFocusEffect(
@@ -50,6 +68,43 @@ export default function InstallmentPlanScreen() {
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "No se pudo pagar.");
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSave() {
+    if (!plan || !description.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await updateInstallmentPlan(plan.id, {
+        description: description.trim(),
+        merchant: merchant.trim() || null,
+        categoryId,
+      });
+      await load();
+    } catch (e) {
+      setError(errorMessageFor(e, "No se pudo guardar."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onCancelPlan() {
+    if (!plan) return;
+    const ok = await confirmDestructive(
+      "Cancelar plan de cuotas",
+      "Las cuotas pendientes se eliminan; las que ya pagaste quedan como historial.",
+      "Cancelar plan",
+    );
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteInstallmentPlan(plan.id);
+      router.back();
+    } catch (e) {
+      setError(errorMessageFor(e, "No se pudo cancelar."));
       setBusy(false);
     }
   }
@@ -129,6 +184,37 @@ export default function InstallmentPlanScreen() {
               </View>
             </FadeIn>
           ))}
+        </View>
+
+        <View style={{ gap: spacing[4], paddingTop: spacing[3], borderTopWidth: 1, borderTopColor: colors.border.subtle }}>
+          <Input label="Descripción" value={description} onChangeText={setDescription} />
+          <Input label="Comercio" value={merchant} onChangeText={setMerchant} placeholder="Opcional" />
+
+          {categories.length > 0 ? (
+            <View style={{ gap: spacing[2] }}>
+              <Text variant="caption" color="secondary">
+                Categoría
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
+                {categories.map((c) => (
+                  <Chip
+                    key={c.id}
+                    label={c.name}
+                    selected={categoryId === c.id}
+                    onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
+                  />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          <Button
+            label={busy ? "Guardando…" : "Guardar"}
+            variant="secondary"
+            onPress={onSave}
+            disabled={busy || !description.trim()}
+          />
+          <Button label="Cancelar plan" variant="danger" onPress={onCancelPlan} disabled={busy} />
         </View>
       </ScrollView>
     </Screen>
