@@ -27,6 +27,7 @@ export const accounts = sqliteTable("accounts", {
   statementDay: integer("statement_day"),
   paymentDueDay: integer("payment_due_day"),
   interestRate: real("interest_rate"),
+  minimumPaymentPercent: real("minimum_payment_percent"), // backend V1_7, faltaba acá
   balanceRecalculatedAt: text("balance_recalculated_at"), // ISO 8601
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),

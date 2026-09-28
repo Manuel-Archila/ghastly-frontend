@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { api } from "@/data/api/client";
 import { db } from "@/data/db/client";
@@ -68,6 +68,7 @@ async function applyAccount(p: Record<string, unknown>): Promise<void> {
       statementDay: (p.statement_day as number | null) ?? null,
       paymentDueDay: (p.payment_due_day as number | null) ?? null,
       interestRate: (p.interest_rate as number | null) ?? null,
+      minimumPaymentPercent: (p.minimum_payment_percent as number | null) ?? null,
       createdAt: p.created_at as string,
       updatedAt: p.updated_at as string,
     })
@@ -76,6 +77,15 @@ async function applyAccount(p: Record<string, unknown>): Promise<void> {
       set: {
         name: p.name as string,
         institution: (p.institution as string | null) ?? null,
+        lastFour: (p.last_four as string | null) ?? null,
+        color: (p.color as string | null) ?? null,
+        icon: (p.icon as string | null) ?? null,
+        sortOrder: (p.sort_order as number | undefined) ?? 0,
+        creditLimitCents: (p.credit_limit_cents as number | null) ?? null,
+        statementDay: (p.statement_day as number | null) ?? null,
+        paymentDueDay: (p.payment_due_day as number | null) ?? null,
+        interestRate: (p.interest_rate as number | null) ?? null,
+        minimumPaymentPercent: (p.minimum_payment_percent as number | null) ?? null,
         // El saldo es derivado: gana el servidor (PLAN-frontend §3).
         currentBalanceCents: p.current_balance_cents as number,
         isArchived: p.is_archived as boolean,
@@ -333,6 +343,13 @@ export async function softDelete(entityType: string, id: string): Promise<void> 
     await db.update(recurringRules).set({ deletedAt: now }).where(eq(recurringRules.id, id));
   } else if (entityType === "installment_plan") {
     await db.update(installmentPlans).set({ deletedAt: now }).where(eq(installmentPlans.id, id));
+    // El backend borra FÍSICO las cuotas pendientes al cancelar el plan (no
+    // hay deletedAt en `installments` ni un change_log por cada una) — se
+    // replica acá para no dejar cuotas fantasma. Las pagadas quedan, como
+    // historial, igual que en el servidor.
+    await db
+      .delete(installments)
+      .where(and(eq(installments.planId, id), eq(installments.status, "pending")));
   } else if (entityType === "debt") {
     await db.update(debts).set({ deletedAt: now }).where(eq(debts.id, id));
   } else if (entityType === "goal") {

@@ -119,13 +119,21 @@ export default function AccountsScreen() {
                   />
                 </View>
 
-                <Button
-                  label={busyId === a.id ? "Borrando…" : "Borrar cuenta"}
-                  variant="danger"
-                  fullWidth={false}
-                  disabled={busyId === a.id}
-                  onPress={() => confirmDelete(a)}
-                />
+                <View style={{ flexDirection: "row", gap: spacing[2] }}>
+                  <Button
+                    label="Editar"
+                    variant="secondary"
+                    fullWidth={false}
+                    onPress={() => router.push(`/accounts/${a.id}`)}
+                  />
+                  <Button
+                    label={busyId === a.id ? "Borrando…" : "Borrar cuenta"}
+                    variant="danger"
+                    fullWidth={false}
+                    disabled={busyId === a.id}
+                    onPress={() => confirmDelete(a)}
+                  />
+                </View>
               </View>
             </FadeIn>
           ))

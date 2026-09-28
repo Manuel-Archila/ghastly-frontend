@@ -1,0 +1,1 @@
+ALTER TABLE `accounts` ADD `minimum_payment_percent` real;
