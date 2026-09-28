@@ -1,6 +1,7 @@
 import { listAccounts } from "@/data/repositories/accounts";
 import { listRecurringRules, listUpcomingInstallments } from "@/data/repositories/commitments";
 import { computeCurrentCycle } from "@/domain/creditCycle";
+import { nextOccurrence, type Frequency } from "@/domain/recurrence";
 import { addDays, daysBetween, todayIso } from "@/lib/dates";
 
 export interface CommitmentEvent {
@@ -27,13 +28,26 @@ export async function computeUpcoming(days = 45): Promise<{
   ]);
 
   for (const rule of rules) {
-    if (rule.nextDueDate >= today && rule.nextDueDate <= horizon) {
-      events.push({
-        date: rule.nextDueDate,
-        label: rule.name,
-        amountCents: rule.amountCents,
-        kind: "recurring",
-      });
+    // `next_due_date` guarda UNA sola fecha — la que viene — no una serie.
+    // Para que el calendario muestre la suscripción en cada mes futuro (no
+    // solo en el mes de esa fecha), se proyecta hacia adelante con la misma
+    // función que usa "Saltar próxima ocurrencia" en el servidor, hasta
+    // salirse del horizonte visible o llegar a end_date.
+    let occurrence = rule.nextDueDate;
+    // El tope real lo pone `occurrence <= horizon`; este número solo evita
+    // un loop infinito si algo anda mal (nextOccurrence no debería nunca
+    // quedarse quieta o retroceder).
+    for (let i = 0; i < 2000 && occurrence <= horizon; i++) {
+      if (rule.endDate && occurrence > rule.endDate) break;
+      if (occurrence >= today) {
+        events.push({
+          date: occurrence,
+          label: rule.name,
+          amountCents: rule.amountCents,
+          kind: "recurring",
+        });
+      }
+      occurrence = nextOccurrence(occurrence, rule.frequency as Frequency, rule.interval);
     }
   }
 

@@ -11,6 +11,13 @@ export interface CreateAccountInput {
   type: string;
   initialBalanceCents: number;
   currency?: string;
+  /** Solo tiene sentido para `type: "credit_card"` — el backend los acepta
+   * desde la creación (AccountCreate), no hace falta esperar a editar. */
+  creditLimitCents?: number | null;
+  statementDay?: number | null;
+  paymentDueDay?: number | null;
+  interestRate?: number | null;
+  minimumPaymentPercent?: number | null;
 }
 
 /** Escribe local + encola en el outbox, en una transacción de DB. */
@@ -27,6 +34,11 @@ export async function createAccountLocally(input: CreateAccountInput): Promise<s
       currency,
       initialBalanceCents: input.initialBalanceCents,
       currentBalanceCents: input.initialBalanceCents,
+      creditLimitCents: input.creditLimitCents ?? null,
+      statementDay: input.statementDay ?? null,
+      paymentDueDay: input.paymentDueDay ?? null,
+      interestRate: input.interestRate ?? null,
+      minimumPaymentPercent: input.minimumPaymentPercent ?? null,
       createdAt: now,
       updatedAt: now,
     });
@@ -41,6 +53,11 @@ export async function createAccountLocally(input: CreateAccountInput): Promise<s
         type: input.type,
         currency,
         initial_balance_cents: input.initialBalanceCents,
+        credit_limit_cents: input.creditLimitCents ?? null,
+        statement_day: input.statementDay ?? null,
+        payment_due_day: input.paymentDueDay ?? null,
+        interest_rate: input.interestRate ?? null,
+        minimum_payment_percent: input.minimumPaymentPercent ?? null,
       },
       clientUpdatedAt: now,
       createdAt: now,

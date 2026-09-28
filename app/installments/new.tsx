@@ -8,7 +8,7 @@ import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { generateInstallmentSchedule } from "@/domain/installments";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
-import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, DateField, Input, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function NewInstallmentPlanScreen() {
@@ -18,6 +18,7 @@ export default function NewInstallmentPlanScreen() {
   const [description, setDescription] = useState("");
   const [total, setTotal] = useState("");
   const [count, setCount] = useState("12");
+  const [firstPaymentDate, setFirstPaymentDate] = useState(todayIso());
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,8 +38,8 @@ export default function NewInstallmentPlanScreen() {
     if (totalCents === null || !Number.isInteger(countNum) || countNum < 1 || countNum > 60) {
       return [];
     }
-    return generateInstallmentSchedule(totalCents, countNum, todayIso());
-  }, [totalCents, countNum]);
+    return generateInstallmentSchedule(totalCents, countNum, firstPaymentDate);
+  }, [totalCents, countNum, firstPaymentDate]);
 
   async function onSave() {
     if (!description.trim() || totalCents === null || !accountId || preview.length === 0) return;
@@ -51,7 +52,7 @@ export default function NewInstallmentPlanScreen() {
         description: description.trim(),
         totalAmountCents: totalCents,
         installmentsCount: countNum,
-        firstPaymentDate: todayIso(),
+        firstPaymentDate,
       });
       router.back();
     } catch (e) {
@@ -73,6 +74,11 @@ export default function NewInstallmentPlanScreen() {
           placeholder="0.00"
         />
         <Input label="Número de cuotas" value={count} onChangeText={setCount} keyboardType="number-pad" />
+        <DateField
+          label="Primera cuota"
+          value={firstPaymentDate}
+          onChange={setFirstPaymentDate}
+        />
 
         <View style={{ gap: spacing[2] }}>
           <Text variant="caption" color="secondary">
