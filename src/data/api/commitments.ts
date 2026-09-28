@@ -10,7 +10,13 @@ import { uuidv7 } from "@/lib/uuid";
 
 async function createAndPull<T>(path: string, body: unknown, headers?: Record<string, string>): Promise<T> {
   const data = await api.post<T>(path, body, headers);
-  await pullChanges();
+  const pull = await pullChanges();
+  if (pull.failed > 0) {
+    // El servidor ya lo creó (la llamada de arriba no lanzó) — esto solo
+    // significa que la pantalla local puede tardar en mostrarlo hasta el
+    // próximo sync. No se revierte nada.
+    console.error(`[commitments] ${path}: se creó en el servidor pero falló al bajarlo local`);
+  }
   return data;
 }
 

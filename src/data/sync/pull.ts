@@ -340,45 +340,66 @@ export async function softDelete(entityType: string, id: string): Promise<void> 
   }
 }
 
-/** Trae y aplica todos los cambios del servidor desde el último cursor. */
-export async function pullChanges(): Promise<number> {
+async function applyChange(change: SyncChange): Promise<void> {
+  if (change.op === "delete" && change.entity_type !== "transaction") {
+    await softDelete(change.entity_type, change.entity_id);
+  } else if (change.entity_type === "account") {
+    await applyAccount(change.payload);
+  } else if (change.entity_type === "category") {
+    await applyCategory(change.payload);
+  } else if (change.entity_type === "transaction") {
+    await applyTransaction(change.payload, change.op);
+  } else if (change.entity_type === "budget") {
+    await applyBudget(change.payload);
+  } else if (change.entity_type === "budget_item") {
+    await applyBudgetItem(change.payload);
+  } else if (change.entity_type === "recurring_rule") {
+    await applyRecurringRule(change.payload);
+  } else if (change.entity_type === "installment_plan") {
+    await applyInstallmentPlan(change.payload);
+  } else if (change.entity_type === "installment") {
+    await applyInstallment(change.payload);
+  } else if (change.entity_type === "debt") {
+    await applyDebt(change.payload);
+  } else if (change.entity_type === "goal") {
+    await applyGoal(change.payload);
+  }
+  // budget_period / debt_payment / goal_contribution / receivable /
+  // transaction_template: se traen cuando haya pantalla local que los use.
+}
+
+/** Trae y aplica todos los cambios del servidor desde el último cursor.
+ *
+ * Cada cambio se aplica en su propio try/catch: si UNO falla (un tipo de
+ * dato inesperado, una fila que todavía no existe localmente, lo que sea),
+ * el resto de la página se sigue aplicando y el cursor avanza igual — la
+ * alternativa es que ese ítem roto trabe la sincronización de TODO lo que
+ * venga después, para siempre, sin que nada lo avise (mismo criterio que
+ * `/sync/push` en el backend: un error de una mutación no tumba el lote).
+ * Los que fallaron quedan en `failed` para que quien llame decida si avisa. */
+export async function pullChanges(): Promise<{ applied: number; failed: number }> {
   let cursor = await getCursor();
   let applied = 0;
+  let failed = 0;
 
   for (;;) {
     const page = await api.get<SyncPullResponse>(`/sync/pull?since=${cursor}&limit=500`);
     for (const change of page.changes) {
-      if (change.op === "delete" && change.entity_type !== "transaction") {
-        await softDelete(change.entity_type, change.entity_id);
-      } else if (change.entity_type === "account") {
-        await applyAccount(change.payload);
-      } else if (change.entity_type === "category") {
-        await applyCategory(change.payload);
-      } else if (change.entity_type === "transaction") {
-        await applyTransaction(change.payload, change.op);
-      } else if (change.entity_type === "budget") {
-        await applyBudget(change.payload);
-      } else if (change.entity_type === "budget_item") {
-        await applyBudgetItem(change.payload);
-      } else if (change.entity_type === "recurring_rule") {
-        await applyRecurringRule(change.payload);
-      } else if (change.entity_type === "installment_plan") {
-        await applyInstallmentPlan(change.payload);
-      } else if (change.entity_type === "installment") {
-        await applyInstallment(change.payload);
-      } else if (change.entity_type === "debt") {
-        await applyDebt(change.payload);
-      } else if (change.entity_type === "goal") {
-        await applyGoal(change.payload);
+      try {
+        await applyChange(change);
+        applied += 1;
+      } catch (e) {
+        failed += 1;
+        console.error(
+          `[sync] no se pudo aplicar ${change.entity_type} ${change.entity_id} (seq ${change.server_seq}):`,
+          e,
+        );
       }
-      // budget_period / debt_payment / goal_contribution: se traen cuando
-      // haya pantalla de historial que los use.
-      applied += 1;
     }
     cursor = page.next_seq;
     await setCursor(cursor);
     if (!page.has_more) break;
   }
 
-  return applied;
+  return { applied, failed };
 }
