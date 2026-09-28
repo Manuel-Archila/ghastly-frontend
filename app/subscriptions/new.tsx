@@ -8,7 +8,7 @@ import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { listCategories, type Category } from "@/data/repositories/categories";
 import { parseCentsFromInput } from "@/domain/money";
 import { addDays, todayIso } from "@/lib/dates";
-import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, DateField, Input, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 const FREQUENCIES = ["monthly", "weekly", "quarterly", "yearly"] as const;
@@ -51,10 +51,9 @@ export default function NewSubscriptionScreen() {
     ? chargedGtqCents / cents
     : null;
   const fxRateValid = !needsFxRate || fxRate !== null;
-  const dateValid = /^\d{4}-\d{2}-\d{2}$/.test(nextDueDate) && !Number.isNaN(Date.parse(nextDueDate));
 
   async function onSave() {
-    if (!name.trim() || cents === null || !accountId || !fxRateValid || !dateValid) return;
+    if (!name.trim() || cents === null || !accountId || !fxRateValid) return;
     setBusy(true);
     setError(null);
     try {
@@ -102,43 +101,28 @@ export default function NewSubscriptionScreen() {
           </View>
         </View>
 
-        <View style={{ gap: spacing[2] }}>
-          <Text variant="caption" color="secondary">
-            Próximo cobro
-          </Text>
-          <Input
-            value={nextDueDate}
-            onChangeText={setNextDueDate}
-            placeholder="AAAA-MM-DD"
-            autoCapitalize="none"
+        <DateField label="Próximo cobro" value={nextDueDate} onChange={setNextDueDate} />
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
+          <Chip
+            label="Hoy"
+            selected={nextDueDate === todayIso()}
+            onPress={() => setNextDueDate(todayIso())}
           />
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-            <Chip
-              label="Hoy"
-              selected={nextDueDate === todayIso()}
-              onPress={() => setNextDueDate(todayIso())}
-            />
-            <Chip
-              label="En 7 días"
-              selected={nextDueDate === addDays(todayIso(), 7)}
-              onPress={() => setNextDueDate(addDays(todayIso(), 7))}
-            />
-            <Chip
-              label="En 15 días"
-              selected={nextDueDate === addDays(todayIso(), 15)}
-              onPress={() => setNextDueDate(addDays(todayIso(), 15))}
-            />
-            <Chip
-              label="En 30 días"
-              selected={nextDueDate === addDays(todayIso(), 30)}
-              onPress={() => setNextDueDate(addDays(todayIso(), 30))}
-            />
-          </View>
-          {!dateValid ? (
-            <Text variant="caption" style={{ color: colors.danger.fg }}>
-              La fecha va como AAAA-MM-DD.
-            </Text>
-          ) : null}
+          <Chip
+            label="En 7 días"
+            selected={nextDueDate === addDays(todayIso(), 7)}
+            onPress={() => setNextDueDate(addDays(todayIso(), 7))}
+          />
+          <Chip
+            label="En 15 días"
+            selected={nextDueDate === addDays(todayIso(), 15)}
+            onPress={() => setNextDueDate(addDays(todayIso(), 15))}
+          />
+          <Chip
+            label="En 30 días"
+            selected={nextDueDate === addDays(todayIso(), 30)}
+            onPress={() => setNextDueDate(addDays(todayIso(), 30))}
+          />
         </View>
 
         {accounts.length === 0 ? (
@@ -200,7 +184,7 @@ export default function NewSubscriptionScreen() {
         <Button
           label={busy ? "Guardando…" : "Guardar"}
           onPress={onSave}
-          disabled={busy || !name.trim() || cents === null || !accountId || !fxRateValid || !dateValid}
+          disabled={busy || !name.trim() || cents === null || !accountId || !fxRateValid}
         />
       </ScrollView>
     </Screen>

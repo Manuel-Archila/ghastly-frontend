@@ -13,3 +13,4 @@ export { SegmentedControl } from "./SegmentedControl";
 export type { SegmentedControlOption } from "./SegmentedControl";
 export { Notice } from "./Notice";
 export { ListRow } from "./ListRow";
+export { DateField } from "./DateField";
