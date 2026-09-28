@@ -84,6 +84,7 @@ export interface RecurringRulePatch {
   categoryId?: string | null;
   amountCents?: number;
   endDate?: string | null;
+  autoCreate?: boolean;
   reminderDaysBefore?: number;
 }
 
@@ -93,6 +94,7 @@ export function updateRecurringRule(ruleId: string, patch: RecurringRulePatch) {
   if (patch.categoryId !== undefined) body.category_id = patch.categoryId;
   if (patch.amountCents !== undefined) body.amount_cents = patch.amountCents;
   if (patch.endDate !== undefined) body.end_date = patch.endDate;
+  if (patch.autoCreate !== undefined) body.auto_create = patch.autoCreate;
   if (patch.reminderDaysBefore !== undefined) body.reminder_days_before = patch.reminderDaysBefore;
   return callAndPull(`PATCH /recurring-rules/${ruleId}`, () =>
     api.patch(`/recurring-rules/${ruleId}`, body),

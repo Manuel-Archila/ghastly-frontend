@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { ScrollView, Switch, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import {
@@ -29,6 +29,7 @@ export default function SubscriptionDetailScreen() {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [autoCreate, setAutoCreate] = useState(false);
   const [reminderDays, setReminderDays] = useState("2");
   const [confirmDate, setConfirmDate] = useState(todayIso());
   const [busy, setBusy] = useState(false);
@@ -41,6 +42,7 @@ export default function SubscriptionDetailScreen() {
     setName(r.name);
     setAmount((r.amountCents / 100).toFixed(2));
     setCategoryId(r.categoryId);
+    setAutoCreate(r.autoCreate);
     setReminderDays(String(r.reminderDaysBefore));
     setCategories(await listCategories(r.kind as "expense" | "income"));
   }, [id]);
@@ -86,6 +88,7 @@ export default function SubscriptionDetailScreen() {
         name: name.trim(),
         categoryId,
         amountCents: cents!,
+        autoCreate,
         reminderDaysBefore: reminderDaysNum,
       });
     });
@@ -163,6 +166,24 @@ export default function SubscriptionDetailScreen() {
             </View>
           </View>
         ) : null}
+
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <View style={{ flex: 1, paddingRight: spacing[3] }}>
+            <Text variant="body">Cobrarse sola</Text>
+            <Text variant="caption" color="tertiary">
+              {autoCreate
+                ? "Se registra el gasto solo cada vez que toca, sin avisar."
+                : "Solo avisa; tú confirmás el gasto cada vez que te cobren."}
+            </Text>
+          </View>
+          <Switch value={autoCreate} onValueChange={setAutoCreate} />
+        </View>
 
         <Input
           label="Avisar con cuántos días de anticipación"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { ScrollView, Switch, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 
 import { createRecurringRule } from "@/data/api/commitments";
@@ -26,6 +26,7 @@ export default function NewSubscriptionScreen() {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [chargedGtq, setChargedGtq] = useState("");
   const [nextDueDate, setNextDueDate] = useState(todayIso());
+  const [autoCreate, setAutoCreate] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -67,7 +68,7 @@ export default function NewSubscriptionScreen() {
         fxRate: needsFxRate && fxRate !== null ? fxRate : undefined,
         frequency,
         nextDueDate,
-        autoCreate: false,
+        autoCreate,
         reminderDaysBefore: 2,
       });
       router.back();
@@ -123,6 +124,24 @@ export default function NewSubscriptionScreen() {
             selected={nextDueDate === addDays(todayIso(), 30)}
             onPress={() => setNextDueDate(addDays(todayIso(), 30))}
           />
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <View style={{ flex: 1, paddingRight: spacing[3] }}>
+            <Text variant="body">Cobrarse sola</Text>
+            <Text variant="caption" color="tertiary">
+              {autoCreate
+                ? "Se registra el gasto solo cada vez que toca, sin avisar."
+                : "Solo avisa; tú confirmás el gasto cada vez que te cobren."}
+            </Text>
+          </View>
+          <Switch value={autoCreate} onValueChange={setAutoCreate} />
         </View>
 
         {accounts.length === 0 ? (
