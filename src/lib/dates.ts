@@ -20,8 +20,17 @@ export function addMonthsClamped(iso: string, months: number): string {
   return clampDay(year, month1, day);
 }
 
+/** Fecha de HOY en el calendario local del dispositivo — `toISOString()`
+ * da la fecha en UTC, que ya es "mañana" entre las 18:00 y la medianoche
+ * en Guatemala (UTC-6). Esto es solo el default que ve el usuario en un
+ * formulario; la fecha real de negocio siempre la decide el servidor
+ * (CLAUDE.md), pero un default equivocado es un default que hay que
+ * corregir a mano cada vez. */
 export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
 }
 
 export function addDays(iso: string, days: number): string {
