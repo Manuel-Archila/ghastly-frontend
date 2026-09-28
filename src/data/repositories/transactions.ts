@@ -177,9 +177,18 @@ export async function createTransferLocally(input: CreateTransferInput): Promise
 export interface UpdateTransactionInput {
   categoryId?: string | null;
   date?: string;
+  amountCents?: number;
   description?: string | null;
   merchant?: string | null;
   notes?: string | null;
+}
+
+/** El monto NO se puede editar en estas — el backend las rechaza con 422
+ * (`transaction_service._locked_amount_reason`) porque otra fila ya asume
+ * que su monto coincide con el de la transacción. La UI debe consultar esto
+ * antes de mostrar el campo de monto como editable. */
+export function amountIsLocked(txn: Pick<Transaction, "kind" | "installmentId" | "receivableId">): boolean {
+  return txn.kind === "transfer" || txn.installmentId !== null || txn.receivableId !== null;
 }
 
 export async function updateTransactionLocally(
@@ -188,10 +197,49 @@ export async function updateTransactionLocally(
 ): Promise<void> {
   const now = new Date().toISOString();
   await db.transaction(async (tx) => {
-    await tx.update(transactions).set({ ...patch, updatedAt: now }).where(eq(transactions.id, id));
+    const fieldPatch: Record<string, unknown> = { ...patch, updatedAt: now };
+
+    if (patch.amountCents !== undefined) {
+      const rows = await tx.select().from(transactions).where(eq(transactions.id, id)).limit(1);
+      const existing = rows[0];
+      if (existing && patch.amountCents !== existing.amountCents && !amountIsLocked(existing)) {
+        // Optimista, igual que crear: el servidor es la autoridad, pero así el
+        // saldo/presupuesto local no muestran mal hasta el próximo sync. La
+        // diferencia se calcula con DOS montos siempre positivos (signedDelta
+        // no acepta negativos), nunca restando a mano.
+        const accountRows = await tx
+          .select()
+          .from(accounts)
+          .where(eq(accounts.id, existing.accountId))
+          .limit(1);
+        const account = accountRows[0];
+        if (account) {
+          const kind = existing.kind as "expense" | "income";
+          const accountType = account.type as AccountType;
+          const oldDelta = signedDelta(
+            { kind, amountCents: existing.amountCents, transferDirection: null },
+            accountType,
+          );
+          const newDelta = signedDelta(
+            { kind, amountCents: patch.amountCents, transferDirection: null },
+            accountType,
+          );
+          await tx
+            .update(accounts)
+            .set({ currentBalanceCents: account.currentBalanceCents + (newDelta - oldDelta), updatedAt: now })
+            .where(eq(accounts.id, account.id));
+        }
+        fieldPatch.baseAmountCents = existing.fxRate
+          ? new Money(patch.amountCents, existing.currency).convert(existing.fxRate, "GTQ").cents
+          : patch.amountCents;
+      }
+    }
+
+    await tx.update(transactions).set(fieldPatch).where(eq(transactions.id, id));
     const payload: Record<string, unknown> = {};
     if (patch.categoryId !== undefined) payload.category_id = patch.categoryId;
     if (patch.date !== undefined) payload.date = patch.date;
+    if (patch.amountCents !== undefined) payload.amount_cents = patch.amountCents;
     if (patch.description !== undefined) payload.description = patch.description;
     if (patch.merchant !== undefined) payload.merchant = patch.merchant;
     if (patch.notes !== undefined) payload.notes = patch.notes;

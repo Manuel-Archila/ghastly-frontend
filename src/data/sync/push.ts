@@ -1,9 +1,11 @@
 import { asc, eq, inArray, notInArray } from "drizzle-orm";
 
+import { getAccountRemote } from "@/data/api/accounts";
 import { getBudgetItemRemote } from "@/data/api/budgets";
 import { api, ApiError } from "@/data/api/client";
+import { getTransactionRemote } from "@/data/api/transactions";
 import { db } from "@/data/db/client";
-import { budgetItems, outboxMutations } from "@/data/db/schema";
+import { accounts, budgetItems, outboxMutations, transactions } from "@/data/db/schema";
 import { softDelete } from "@/data/sync/pull";
 import { getOrCreateDeviceId } from "@/lib/deviceId";
 
@@ -102,6 +104,49 @@ async function reconcileBudgetItem(itemId: string): Promise<void> {
   }
 }
 
+/** El monto local ya se editó de forma optimista (repositories/transactions.ts)
+ * y ya movió el saldo de la cuenta; si el servidor lo rechaza, los dos
+ * quedan mal hasta que se corrigen a mano contra el valor real. */
+const TRANSACTION_AMOUNT_REJECTIONS = new Set([
+  "TRANSFER_AMOUNT_EDIT_UNSUPPORTED",
+  "INSTALLMENT_AMOUNT_LOCKED",
+  "RECEIVABLE_AMOUNT_LOCKED",
+  "DEBT_PAYMENT_AMOUNT_LOCKED",
+  "GOAL_CONTRIBUTION_AMOUNT_LOCKED",
+]);
+
+async function reconcileTransaction(transactionId: string): Promise<void> {
+  const local = (
+    await db.select().from(transactions).where(eq(transactions.id, transactionId)).limit(1)
+  )[0];
+  if (!local) return;
+  try {
+    const remote = await getTransactionRemote(transactionId);
+    await db
+      .update(transactions)
+      .set({
+        amountCents: remote.amount_cents,
+        baseAmountCents: remote.base_amount_cents,
+        updatedAt: remote.updated_at,
+      })
+      .where(eq(transactions.id, transactionId));
+
+    const accountRemote = await getAccountRemote(local.accountId);
+    await db
+      .update(accounts)
+      .set({
+        currentBalanceCents: accountRemote.current_balance_cents,
+        updatedAt: accountRemote.updated_at,
+      })
+      .where(eq(accounts.id, local.accountId));
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) {
+      await softDelete("transaction", transactionId);
+    }
+    // Sin red: queda como está; el próximo pull/edición lo corrige.
+  }
+}
+
 async function handleConflicts(
   conflicts: SyncConflict[],
   entityTypeByMutation: Map<string, string>,
@@ -113,6 +158,8 @@ async function handleConflicts(
       await softDelete(entityType, c.entity_id);
     } else if (entityType === "budget_item" && BUDGET_ITEM_REJECTIONS.has(c.reason)) {
       await reconcileBudgetItem(c.entity_id);
+    } else if (entityType === "transaction" && TRANSACTION_AMOUNT_REJECTIONS.has(c.reason)) {
+      await reconcileTransaction(c.entity_id);
     }
   }
 }

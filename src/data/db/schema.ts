@@ -77,6 +77,7 @@ export const transactions = sqliteTable("transactions", {
   tags: text("tags", { mode: "json" }).$type<string[]>().notNull().default([]),
   installmentId: text("installment_id"),
   recurringRuleId: text("recurring_rule_id"),
+  receivableId: text("receivable_id"), // faltaba: TransactionOut lo expone desde Fase 5
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   deletedAt: text("deleted_at"),

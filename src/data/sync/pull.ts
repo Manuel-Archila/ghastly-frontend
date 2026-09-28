@@ -135,36 +135,39 @@ async function applyTransaction(p: Record<string, unknown>, op: "upsert" | "dele
       .where(eq(transactions.id, p.id as string));
     return;
   }
+  const v = {
+    id: p.id as string,
+    accountId: p.account_id as string,
+    categoryId: (p.category_id as string | null) ?? null,
+    kind: p.kind as string,
+    amountCents: p.amount_cents as number,
+    currency: p.currency as string,
+    fxRate: (p.fx_rate as number | null) ?? null,
+    baseAmountCents: (p.base_amount_cents as number | null) ?? null,
+    date: p.date as string,
+    description: (p.description as string | null) ?? null,
+    merchant: (p.merchant as string | null) ?? null,
+    notes: (p.notes as string | null) ?? null,
+    transferGroupId: (p.transfer_group_id as string | null) ?? null,
+    transferDirection: (p.transfer_direction as string | null) ?? null,
+    refundOfId: (p.refund_of_id as string | null) ?? null,
+    isReconciled: (p.is_reconciled as boolean | undefined) ?? false,
+    isTaxRelevant: (p.is_tax_relevant as boolean | undefined) ?? false,
+    isExtraordinary: (p.is_extraordinary as boolean | undefined) ?? false,
+    affectsClosedPeriod: (p.affects_closed_period as boolean | undefined) ?? false,
+    receiptKey: (p.receipt_key as string | null) ?? null,
+    tags: (p.tags as string[] | undefined) ?? [],
+    installmentId: (p.installment_id as string | null) ?? null,
+    recurringRuleId: (p.recurring_rule_id as string | null) ?? null,
+    receivableId: (p.receivable_id as string | null) ?? null,
+    createdAt: p.created_at as string,
+    updatedAt: p.updated_at as string,
+    deletedAt: null as string | null,
+  };
   await db
     .insert(transactions)
-    .values({
-      id: p.id as string,
-      accountId: p.account_id as string,
-      categoryId: (p.category_id as string | null) ?? null,
-      kind: p.kind as string,
-      amountCents: p.amount_cents as number,
-      currency: p.currency as string,
-      fxRate: (p.fx_rate as number | null) ?? null,
-      baseAmountCents: (p.base_amount_cents as number | null) ?? null,
-      date: p.date as string,
-      description: (p.description as string | null) ?? null,
-      merchant: (p.merchant as string | null) ?? null,
-      notes: (p.notes as string | null) ?? null,
-      transferGroupId: (p.transfer_group_id as string | null) ?? null,
-      transferDirection: (p.transfer_direction as string | null) ?? null,
-      tags: (p.tags as string[] | undefined) ?? [],
-      createdAt: p.created_at as string,
-      updatedAt: p.updated_at as string,
-    })
-    .onConflictDoUpdate({
-      target: transactions.id,
-      set: {
-        categoryId: (p.category_id as string | null) ?? null,
-        description: (p.description as string | null) ?? null,
-        updatedAt: p.updated_at as string,
-        deletedAt: null,
-      },
-    });
+    .values(v)
+    .onConflictDoUpdate({ target: transactions.id, set: v });
 }
 
 async function applyBudget(p: Record<string, unknown>): Promise<void> {
