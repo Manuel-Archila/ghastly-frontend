@@ -14,9 +14,9 @@ import { errorMessageFor } from "@/data/api/error-messages";
 import { listCategories, type Category } from "@/data/repositories/categories";
 import { getRecurringRule, type RecurringRule } from "@/data/repositories/commitments";
 import { parseCentsFromInput } from "@/domain/money";
-import { todayIso } from "@/lib/dates";
+import { formatDateLabel, todayIso } from "@/lib/dates";
 import { confirmDestructive } from "@/ui/confirm";
-import { Button, Chip, DateField, Input, Notice, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, DateField, Input, Notice, Screen, ScreenState, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function SubscriptionDetailScreen() {
@@ -57,9 +57,7 @@ export default function SubscriptionDetailScreen() {
     return (
       <Screen style={{ paddingTop: spacing[4] }}>
         <Stack.Screen options={{ title: "Suscripción" }} />
-        <Text variant="body" color="secondary">
-          Cargando…
-        </Text>
+        <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
       </Screen>
     );
   }
@@ -105,7 +103,7 @@ export default function SubscriptionDetailScreen() {
     if (!rule) return;
     const ok = await confirmDestructive(
       "Saltar próxima ocurrencia",
-      `La próxima fecha pasa a la siguiente después de ${rule.nextDueDate}. No se crea ningún movimiento.`,
+      `La próxima fecha pasa a la siguiente después de ${formatDateLabel(rule.nextDueDate)}. No se crea ningún movimiento.`,
       "Saltar",
     );
     if (!ok) return;
@@ -202,7 +200,7 @@ export default function SubscriptionDetailScreen() {
 
         <View style={{ gap: spacing[3], paddingTop: spacing[2], borderTopWidth: 1, borderTopColor: colors.border.subtle }}>
           <Text variant="caption" color="secondary">
-            Próximo cobro: {rule.nextDueDate}
+            Próximo cobro: {formatDateLabel(rule.nextDueDate)}
           </Text>
 
           {!rule.autoCreate && rule.status === "active" ? (

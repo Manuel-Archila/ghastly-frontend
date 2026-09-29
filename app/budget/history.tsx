@@ -12,6 +12,7 @@ import {
 import { errorMessageFor } from "@/data/api/error-messages";
 import { getActiveBudget } from "@/data/repositories/budgets";
 import { Money } from "@/domain/money";
+import { formatMonthLabel } from "@/lib/dates";
 import { confirmDestructive } from "@/ui/confirm";
 import { Button, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
@@ -64,7 +65,7 @@ export default function BudgetHistoryScreen() {
     setNote(null);
     try {
       const result = await closeBudgetPeriod(budget.id, previousMonth());
-      setNote(`Mes ${result.month} cerrado.`);
+      setNote(`${formatMonthLabel(result.month)} cerrado.`);
       await load();
     } catch (e) {
       setNote(errorMessageFor(e, "No se pudo cerrar el mes."));
@@ -81,7 +82,7 @@ export default function BudgetHistoryScreen() {
 
   async function onReopen(month: string) {
     const ok = await confirmDestructive(
-      `Reabrir ${month}`,
+      `Reabrir ${formatMonthLabel(month)}`,
       "El mes se vuelve a calcular en vivo: se pierde el cierre congelado y su arrastre al mes siguiente.",
       "Reabrir",
     );
@@ -92,7 +93,7 @@ export default function BudgetHistoryScreen() {
     setNote(null);
     try {
       await reopenBudgetPeriod(budget.id, month);
-      setNote(`Mes ${month} reabierto.`);
+      setNote(`${formatMonthLabel(month)} reabierto.`);
       await load();
     } catch (e) {
       setNote(errorMessageFor(e, "No se pudo reabrir el mes."));
@@ -135,7 +136,7 @@ export default function BudgetHistoryScreen() {
           return (
             <View key={period.month} style={{ gap: spacing[2] }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text variant="title2">{period.month}</Text>
+                <Text variant="title2">{formatMonthLabel(period.month)}</Text>
                 <Text variant="bodyStrong">
                   {new Money(spent).format()} / {new Money(budgeted).format()}
                 </Text>

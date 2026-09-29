@@ -10,7 +10,8 @@ import {
 } from "@/data/repositories/transactions";
 import { triggerSync } from "@/features/sync/sync-manager";
 import { formatForKind, Money } from "@/domain/money";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { formatDateLabel } from "@/lib/dates";
+import { Button, Screen, ScreenState, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -49,9 +50,7 @@ export default function TransactionDetailScreen() {
     return (
       <Screen>
         <Stack.Screen options={{ title: "Movimiento" }} />
-        <Text variant="body" color="secondary">
-          Cargando…
-        </Text>
+        <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
       </Screen>
     );
   }
@@ -85,7 +84,7 @@ export default function TransactionDetailScreen() {
         {txn.description ? <Row label="Descripción" value={txn.description} /> : null}
         <Row label="Categoría" value={txn.categoryName ?? "Sin categoría"} />
         <Row label="Cuenta" value={txn.accountName ?? "—"} />
-        <Row label="Fecha" value={txn.date} />
+        <Row label="Fecha" value={formatDateLabel(txn.date)} />
         {txn.merchant ? <Row label="Comercio" value={txn.merchant} /> : null}
         {txn.notes ? <Row label="Notas" value={txn.notes} /> : null}
         <Row label="Sincronizado" value={txn.serverSeq > 0 ? "sí" : "pendiente ⟳"} />

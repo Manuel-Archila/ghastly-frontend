@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { ScrollView, View } from "react-native";
+import * as Haptics from "expo-haptics";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { deleteInstallmentPlan, payInstallment, updateInstallmentPlan } from "@/data/api/commitments";
@@ -15,7 +16,7 @@ import {
 import { Money } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
 import { confirmDestructive } from "@/ui/confirm";
-import { Button, Chip, FadeIn, Icon, Input, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, FadeIn, Icon, Input, Screen, ScreenState, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function InstallmentPlanScreen() {
@@ -64,8 +65,10 @@ export default function InstallmentPlanScreen() {
     setError(null);
     try {
       await payInstallment(nextDue.id, todayIso());
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await load();
     } catch (e) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setError(e instanceof ApiError ? e.message : "No se pudo pagar.");
     } finally {
       setBusy(false);
@@ -113,9 +116,7 @@ export default function InstallmentPlanScreen() {
     return (
       <Screen>
         <Stack.Screen options={{ title: "Plan de cuotas" }} />
-        <Text variant="body" color="secondary">
-          Cargando…
-        </Text>
+        <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
       </Screen>
     );
   }

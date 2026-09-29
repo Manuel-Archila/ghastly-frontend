@@ -6,6 +6,7 @@ import { listDevices, revokeDevice, type DeviceOut } from "@/data/api/devices";
 import { errorMessageFor } from "@/data/api/error-messages";
 import { useSessionStore } from "@/features/auth/session-store";
 import { getOrCreateDeviceId } from "@/lib/deviceId";
+import { formatDateLabel } from "@/lib/dates";
 import { confirmDestructive } from "@/ui/confirm";
 import { Button, Card, FadeIn, Notice, Screen, Skeleton, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
@@ -99,7 +100,7 @@ export default function DevicesScreen() {
                   </View>
                   <Text variant="caption" color="tertiary">
                     {d.app_version ? `Versión ${d.app_version} · ` : ""}
-                    {d.last_seen_at ? `Visto ${d.last_seen_at.slice(0, 10)}` : "Sin actividad"}
+                    {d.last_seen_at ? `Visto ${formatDateLabel(d.last_seen_at)}` : "Sin actividad"}
                   </Text>
                   <Text variant="caption" color="tertiary">
                     Push: {maskToken(d.push_token)}

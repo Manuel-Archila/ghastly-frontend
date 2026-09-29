@@ -8,7 +8,7 @@ import { runSync } from "@/data/sync";
 import { TemplateForm, type TemplateSubmit } from "@/features/templates/TemplateForm";
 import { useInvalidateTemplates, useTemplates } from "@/features/templates/useTemplates";
 import { confirmDestructive } from "@/ui/confirm";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { Button, Screen, ScreenState, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function EditTemplateScreen() {
@@ -26,9 +26,13 @@ export default function EditTemplateScreen() {
     return (
       <Screen style={{ paddingTop: spacing[4] }}>
         <Stack.Screen options={{ title: "Plantilla" }} />
-        <Text variant="body" color="secondary">
-          {isLoading ? "Cargando…" : "Ya no existe."}
-        </Text>
+        {isLoading ? (
+          <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
+        ) : (
+          <Text variant="body" color="secondary">
+            Ya no existe.
+          </Text>
+        )}
       </Screen>
     );
   }

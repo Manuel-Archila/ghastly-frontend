@@ -54,7 +54,7 @@ export default function TemplatesScreen() {
                     {t.use_count} {t.use_count === 1 ? "uso" : "usos"}
                   </Text>
                 </View>
-                <Text variant="bodyStrong" style={{ fontVariant: ["tabular-nums"] }}>
+                <Text variant="bodyStrong">
                   {new Money(t.amount_cents).format()}
                 </Text>
                 <Icon name="chevron-forward" size={16} />

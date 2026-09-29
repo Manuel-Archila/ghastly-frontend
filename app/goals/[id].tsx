@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
+import * as Haptics from "expo-haptics";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { contributeToGoal } from "@/data/api/commitments";
@@ -8,7 +9,7 @@ import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { listGoals, type Goal } from "@/data/repositories/commitments";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
-import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, Input, Screen, ScreenState, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function GoalDetailScreen() {
@@ -53,7 +54,9 @@ export default function GoalDetailScreen() {
       });
       setAmount("");
       await load();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setError(e instanceof ApiError ? e.message : "No se pudo aportar.");
     } finally {
       setBusy(false);
@@ -64,9 +67,7 @@ export default function GoalDetailScreen() {
     return (
       <Screen>
         <Stack.Screen options={{ title: "Meta" }} />
-        <Text variant="body" color="secondary">
-          Cargando…
-        </Text>
+        <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
       </Screen>
     );
   }

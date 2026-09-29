@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
+import * as Haptics from "expo-haptics";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { recordDebtPayment } from "@/data/api/commitments";
@@ -8,7 +9,7 @@ import { getDebt, type Debt } from "@/data/repositories/commitments";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
-import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, Input, Screen, ScreenState, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 interface AmortRow {
@@ -66,7 +67,9 @@ export default function DebtDetailScreen() {
       });
       setAmount("");
       await load();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setError(e instanceof ApiError ? e.message : "No se pudo registrar.");
     } finally {
       setBusy(false);
@@ -77,9 +80,7 @@ export default function DebtDetailScreen() {
     return (
       <Screen>
         <Stack.Screen options={{ title: "Deuda" }} />
-        <Text variant="body" color="secondary">
-          Cargando…
-        </Text>
+        <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
       </Screen>
     );
   }

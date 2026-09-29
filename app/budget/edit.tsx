@@ -38,7 +38,7 @@ function centsToInput(cents: number): string {
 
 export default function BudgetEditScreen() {
   const router = useRouter();
-  const { spacing, colors } = useTokens();
+  const { spacing, colors, minTouchTarget } = useTokens();
 
   const [budget, setBudget] = useState<Budget | undefined>();
   const [name, setName] = useState("Presupuesto mensual");
@@ -220,8 +220,8 @@ export default function BudgetEditScreen() {
                     accessibilityLabel={`Quitar ${category?.name ?? "categoría"} del presupuesto`}
                     onPress={() => void onRemove(row)}
                     style={({ pressed }) => ({
-                      minWidth: 48,
-                      minHeight: 48,
+                      minWidth: minTouchTarget,
+                      minHeight: minTouchTarget,
                       alignItems: "center",
                       justifyContent: "center",
                       opacity: pressed ? 0.6 : 1,
@@ -232,7 +232,7 @@ export default function BudgetEditScreen() {
                 </View>
 
                 {childrenSum !== undefined ? (
-                  <Text variant="caption" color="secondary" style={{ fontVariant: ["tabular-nums"] }}>
+                  <Text variant="caption" color="secondary">
                     Subcategorías: {new Money(childrenSum).format()} de {new Money(cents).format()}
                   </Text>
                 ) : null}
@@ -245,7 +245,7 @@ export default function BudgetEditScreen() {
             );
           })}
 
-          <Text variant="caption" color="tertiary" style={{ fontVariant: ["tabular-nums"] }}>
+          <Text variant="caption" color="tertiary">
             Presupuestado total: {new Money(view.summary.rootTotalCents).format()}
           </Text>
         </View>

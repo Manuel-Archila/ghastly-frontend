@@ -8,10 +8,10 @@ import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { pullChanges } from "@/data/sync";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { useInvalidateReceivables, useReceivables } from "@/features/receivables/useReceivables";
-import { todayIso } from "@/lib/dates";
+import { formatDateLabel, todayIso } from "@/lib/dates";
 import { uuidv7 } from "@/lib/uuid";
 import { confirmDestructive } from "@/ui/confirm";
-import { Button, Chip, Input, Notice, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, Input, Notice, Screen, ScreenState, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function ReceivableDetailScreen() {
@@ -51,9 +51,13 @@ export default function ReceivableDetailScreen() {
     return (
       <Screen style={{ paddingTop: spacing[4] }}>
         <Stack.Screen options={{ title: "Me deben" }} />
-        <Text variant="body" color="secondary">
-          {isLoading ? "Cargando…" : "Ya no existe."}
-        </Text>
+        {isLoading ? (
+          <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
+        ) : (
+          <Text variant="body" color="secondary">
+            Ya no existe.
+          </Text>
+        )}
       </Screen>
     );
   }
@@ -121,14 +125,14 @@ export default function ReceivableDetailScreen() {
     <Screen>
       <Stack.Screen options={{ title: receivable.counterparty }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4], paddingBottom: spacing[8] }}>
-        <Text variant="display" style={{ fontVariant: ["tabular-nums"] }}>
+        <Text variant="display">
           {new Money(receivable.amount_cents).format()}
         </Text>
 
         {settled ? (
           <View style={{ gap: spacing[2] }}>
             <Text variant="body" color="secondary">
-              Liquidado{receivable.settled_at ? ` el ${receivable.settled_at.slice(0, 10)}` : ""}. Ya no se
+              Liquidado{receivable.settled_at ? ` el ${formatDateLabel(receivable.settled_at)}` : ""}. Ya no se
               puede editar ni eliminar.
             </Text>
             {receivable.settlement_transaction_id ? (
