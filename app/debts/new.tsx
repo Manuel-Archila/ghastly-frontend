@@ -1,17 +1,14 @@
 import { useState } from "react";
-import { ScrollView } from "react-native";
 import { Stack, useRouter } from "expo-router";
 
 import { createDebt } from "@/data/api/commitments";
 import { ApiError } from "@/data/api/client";
 import { parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
-import { Button, Input, Screen, Text } from "@/ui/primitives";
-import { useTokens } from "@/ui/tokens";
+import { FormScreen, Input } from "@/ui/primitives";
 
 export default function NewDebtScreen() {
   const router = useRouter();
-  const { spacing, colors } = useTokens();
 
   const [name, setName] = useState("");
   const [principal, setPrincipal] = useState("");
@@ -43,9 +40,9 @@ export default function NewDebtScreen() {
   }
 
   return (
-    <Screen>
+    <>
       <Stack.Screen options={{ title: "Nueva deuda" }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
+      <FormScreen error={error} submitLabel="Guardar" onSubmit={onSave} busy={busy}>
         <Input label="Nombre" value={name} onChangeText={setName} placeholder="Préstamo carro" />
         <Input
           label="Monto original"
@@ -60,13 +57,7 @@ export default function NewDebtScreen() {
           onChangeText={setTerm}
           keyboardType="number-pad"
         />
-        {error ? (
-          <Text variant="caption" style={{ color: colors.danger.fg }}>
-            {error}
-          </Text>
-        ) : null}
-        <Button label={busy ? "Guardando…" : "Guardar"} onPress={onSave} disabled={busy} />
-      </ScrollView>
-    </Screen>
+      </FormScreen>
+    </>
   );
 }

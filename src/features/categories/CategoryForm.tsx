@@ -135,7 +135,7 @@ export function CategoryForm({
                   justifyContent: "center",
                   borderRadius: radii.sm,
                   borderWidth: 1,
-                  borderColor: selected ? colors.accent.bg : colors.border.subtle,
+                  borderColor: selected ? colors.accent.bg : colors.border.control,
                   backgroundColor: selected ? colors.bg.sunken : colors.bg.surface,
                 }}
               >

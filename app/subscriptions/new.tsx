@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScrollView, Switch, View } from "react-native";
+import { Switch, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 
 import { createRecurringRule } from "@/data/api/commitments";
@@ -7,8 +7,9 @@ import { ApiError } from "@/data/api/client";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { listCategories, type Category } from "@/data/repositories/categories";
 import { parseCentsFromInput } from "@/domain/money";
+import { frequencyLabel } from "@/features/subscriptions/frequency-label";
 import { addDays, todayIso } from "@/lib/dates";
-import { Button, Chip, DateField, Input, Screen, Text } from "@/ui/primitives";
+import { Chip, ChipGroup, DateField, FormScreen, Input, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 const FREQUENCIES = ["monthly", "weekly", "quarterly", "yearly"] as const;
@@ -16,6 +17,12 @@ const FREQUENCIES = ["monthly", "weekly", "quarterly", "yearly"] as const;
 export default function NewSubscriptionScreen() {
   const router = useRouter();
   const { spacing, colors } = useTokens();
+  const quickDates = [
+    { label: "Hoy", days: 0 },
+    { label: "En 7 días", days: 7 },
+    { label: "En 15 días", days: 15 },
+    { label: "En 30 días", days: 30 },
+  ];
 
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -79,9 +86,15 @@ export default function NewSubscriptionScreen() {
   }
 
   return (
-    <Screen>
+    <>
       <Stack.Screen options={{ title: "Nueva suscripción" }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
+      <FormScreen
+        error={error}
+        submitLabel="Guardar"
+        onSubmit={onSave}
+        busy={busy}
+        submitDisabled={!name.trim() || cents === null || !accountId || !fxRateValid}
+      >
         <Input label="Nombre" value={name} onChangeText={setName} placeholder="Netflix" />
         <Input
           label="Monto"
@@ -91,40 +104,26 @@ export default function NewSubscriptionScreen() {
           placeholder="0.00"
         />
 
-        <View style={{ gap: spacing[2] }}>
-          <Text variant="caption" color="secondary">
-            Frecuencia
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-            {FREQUENCIES.map((f) => (
-              <Chip key={f} label={f} selected={frequency === f} onPress={() => setFrequency(f)} />
-            ))}
-          </View>
-        </View>
+        <ChipGroup label="Frecuencia">
+          {FREQUENCIES.map((f) => (
+            <Chip key={f} label={frequencyLabel(f)} selected={frequency === f} onPress={() => setFrequency(f)} />
+          ))}
+        </ChipGroup>
 
         <DateField label="Próximo cobro" value={nextDueDate} onChange={setNextDueDate} />
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-          <Chip
-            label="Hoy"
-            selected={nextDueDate === todayIso()}
-            onPress={() => setNextDueDate(todayIso())}
-          />
-          <Chip
-            label="En 7 días"
-            selected={nextDueDate === addDays(todayIso(), 7)}
-            onPress={() => setNextDueDate(addDays(todayIso(), 7))}
-          />
-          <Chip
-            label="En 15 días"
-            selected={nextDueDate === addDays(todayIso(), 15)}
-            onPress={() => setNextDueDate(addDays(todayIso(), 15))}
-          />
-          <Chip
-            label="En 30 días"
-            selected={nextDueDate === addDays(todayIso(), 30)}
-            onPress={() => setNextDueDate(addDays(todayIso(), 30))}
-          />
-        </View>
+        <ChipGroup>
+          {quickDates.map(({ label, days }) => {
+            const date = addDays(todayIso(), days);
+            return (
+              <Chip
+                key={label}
+                label={label}
+                selected={nextDueDate === date}
+                onPress={() => setNextDueDate(date)}
+              />
+            );
+          })}
+        </ChipGroup>
 
         <View
           style={{
@@ -135,13 +134,18 @@ export default function NewSubscriptionScreen() {
         >
           <View style={{ flex: 1, paddingRight: spacing[3] }}>
             <Text variant="body">Cobrarse sola</Text>
-            <Text variant="caption" color="tertiary">
+            <Text variant="caption" color="secondary">
               {autoCreate
                 ? "Se registra el gasto solo cada vez que toca, sin avisar."
                 : "Solo avisa; tú confirmás el gasto cada vez que te cobren."}
             </Text>
           </View>
-          <Switch value={autoCreate} onValueChange={setAutoCreate} />
+          <Switch
+            accessibilityLabel="Cobrarse sola"
+            value={autoCreate}
+            onValueChange={setAutoCreate}
+            trackColor={{ false: colors.border.control, true: colors.accent.bg }}
+          />
         </View>
 
         {accounts.length === 0 ? (
@@ -149,21 +153,16 @@ export default function NewSubscriptionScreen() {
             Necesitás una cuenta primero. Creá una desde &ldquo;Más&rdquo;.
           </Text>
         ) : (
-          <View style={{ gap: spacing[2] }}>
-            <Text variant="caption" color="secondary">
-              Cuenta
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-              {accounts.map((a) => (
-                <Chip
-                  key={a.id}
-                  label={a.name}
-                  selected={accountId === a.id}
-                  onPress={() => setAccountId(a.id)}
-                />
-              ))}
-            </View>
-          </View>
+          <ChipGroup label="Cuenta">
+            {accounts.map((a) => (
+              <Chip
+                key={a.id}
+                label={a.name}
+                selected={accountId === a.id}
+                onPress={() => setAccountId(a.id)}
+              />
+            ))}
+          </ChipGroup>
         )}
 
         {needsFxRate ? (
@@ -177,35 +176,18 @@ export default function NewSubscriptionScreen() {
         ) : null}
 
         {categories.length > 0 ? (
-          <View style={{ gap: spacing[2] }}>
-            <Text variant="caption" color="secondary">
-              Categoría
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-              {categories.map((c) => (
-                <Chip
-                  key={c.id}
-                  label={c.name}
-                  selected={categoryId === c.id}
-                  onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
-                />
-              ))}
-            </View>
-          </View>
+          <ChipGroup label="Categoría">
+            {categories.map((c) => (
+              <Chip
+                key={c.id}
+                label={c.name}
+                selected={categoryId === c.id}
+                onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
+              />
+            ))}
+          </ChipGroup>
         ) : null}
-
-        {error ? (
-          <Text variant="caption" style={{ color: colors.danger.fg }}>
-            {error}
-          </Text>
-        ) : null}
-
-        <Button
-          label={busy ? "Guardando…" : "Guardar"}
-          onPress={onSave}
-          disabled={busy || !name.trim() || cents === null || !accountId || !fxRateValid}
-        />
-      </ScrollView>
-    </Screen>
+      </FormScreen>
+    </>
   );
 }

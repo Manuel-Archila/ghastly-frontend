@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 
 import { createGoal } from "@/data/api/commitments";
 import { ApiError } from "@/data/api/client";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { parseCentsFromInput } from "@/domain/money";
-import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
-import { useTokens } from "@/ui/tokens";
+import { Chip, ChipGroup, FormScreen, Input } from "@/ui/primitives";
 
 export default function NewGoalScreen() {
   const router = useRouter();
-  const { spacing, colors } = useTokens();
 
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
@@ -44,35 +41,23 @@ export default function NewGoalScreen() {
   }
 
   return (
-    <Screen>
+    <>
       <Stack.Screen options={{ title: "Nueva meta" }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
+      <FormScreen error={error} submitLabel="Guardar" onSubmit={onSave} busy={busy}>
         <Input label="Nombre" value={name} onChangeText={setName} placeholder="Fondo de emergencia" />
         <Input label="Objetivo" value={target} onChangeText={setTarget} keyboardType="decimal-pad" />
 
-        <View style={{ gap: spacing[2] }}>
-          <Text variant="caption" color="secondary">
-            Cuenta enlazada (opcional — los aportes serán transferencias reales)
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-            {accounts.map((a) => (
-              <Chip
-                key={a.id}
-                label={a.name}
-                selected={linkedId === a.id}
-                onPress={() => setLinkedId(linkedId === a.id ? null : a.id)}
-              />
-            ))}
-          </View>
-        </View>
-
-        {error ? (
-          <Text variant="caption" style={{ color: colors.danger.fg }}>
-            {error}
-          </Text>
-        ) : null}
-        <Button label={busy ? "Guardando…" : "Guardar"} onPress={onSave} disabled={busy} />
-      </ScrollView>
-    </Screen>
+        <ChipGroup label="Cuenta enlazada (opcional — los aportes serán transferencias reales)">
+          {accounts.map((a) => (
+            <Chip
+              key={a.id}
+              label={a.name}
+              selected={linkedId === a.id}
+              onPress={() => setLinkedId(linkedId === a.id ? null : a.id)}
+            />
+          ))}
+        </ChipGroup>
+      </FormScreen>
+    </>
   );
 }

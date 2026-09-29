@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
 import { listCategories, type Category } from "@/data/repositories/categories";
@@ -11,13 +10,20 @@ import {
 } from "@/data/repositories/transactions";
 import { parseCentsFromInput } from "@/domain/money";
 import { triggerSync } from "@/features/sync/sync-manager";
-import { Button, Chip, Input, Notice, Screen, Text } from "@/ui/primitives";
-import { useTokens } from "@/ui/tokens";
+import {
+  Chip,
+  ChipGroup,
+  DateField,
+  FormScreen,
+  Input,
+  Notice,
+  Screen,
+  ScreenState,
+} from "@/ui/primitives";
 
 export default function EditTransactionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { spacing } = useTokens();
 
   const [txn, setTxn] = useState<TransactionListItem | undefined>();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -27,6 +33,7 @@ export default function EditTransactionScreen() {
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -49,49 +56,54 @@ export default function EditTransactionScreen() {
   const onSave = useCallback(async () => {
     if (!amountValid) return;
     setBusy(true);
-    await updateTransactionLocally(id, {
-      categoryId,
-      date,
-      ...(amountEditable && amountCents !== null ? { amountCents } : {}),
-      description: description.trim() || null,
-      notes: notes.trim() || null,
-    });
-    triggerSync();
-    router.back();
+    setError(null);
+    try {
+      await updateTransactionLocally(id, {
+        categoryId,
+        date,
+        ...(amountEditable && amountCents !== null ? { amountCents } : {}),
+        description: description.trim() || null,
+        notes: notes.trim() || null,
+      });
+      triggerSync();
+      router.back();
+    } catch {
+      setError("No se pudo guardar el cambio. Intentá de nuevo.");
+      setBusy(false);
+    }
   }, [id, categoryId, date, amountEditable, amountCents, amountValid, description, notes, router]);
 
   if (!txn) {
     return (
       <Screen>
         <Stack.Screen options={{ title: "Editar" }} />
-        <Text variant="body" color="secondary">
-          Cargando…
-        </Text>
+        <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
       </Screen>
     );
   }
 
   return (
-    <Screen>
+    <>
       <Stack.Screen options={{ title: "Editar" }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <View style={{ gap: spacing[2] }}>
-          <Text variant="caption" color="secondary">
-            Categoría
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-            {categories.map((c) => (
-              <Chip
-                key={c.id}
-                label={c.name}
-                selected={categoryId === c.id}
-                onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
-              />
-            ))}
-          </View>
-        </View>
+      <FormScreen
+        error={error}
+        submitLabel="Guardar"
+        onSubmit={onSave}
+        busy={busy}
+        submitDisabled={!amountValid}
+      >
+        <ChipGroup label="Categoría">
+          {categories.map((c) => (
+            <Chip
+              key={c.id}
+              label={c.name}
+              selected={categoryId === c.id}
+              onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
+            />
+          ))}
+        </ChipGroup>
 
-        <Input label="Fecha (YYYY-MM-DD)" value={date} onChangeText={setDate} />
+        <DateField label="Fecha" value={date} onChange={setDate} />
 
         {amountEditable ? (
           <Input
@@ -103,6 +115,7 @@ export default function EditTransactionScreen() {
           />
         ) : (
           <Notice
+            tone="info"
             text={
               txn.kind === "transfer"
                 ? "El monto de una transferencia se edita desde sus dos cuentas."
@@ -115,9 +128,7 @@ export default function EditTransactionScreen() {
 
         <Input label="Descripción" value={description} onChangeText={setDescription} />
         <Input label="Notas" value={notes} onChangeText={setNotes} multiline />
-
-        <Button label={busy ? "Guardando…" : "Guardar"} onPress={onSave} disabled={busy || !amountValid} />
-      </ScrollView>
-    </Screen>
+      </FormScreen>
+    </>
   );
 }

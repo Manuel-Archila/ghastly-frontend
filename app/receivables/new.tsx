@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
 import { createReceivable } from "@/data/api/receivables";
@@ -9,14 +8,12 @@ import { runSync } from "@/data/sync";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { useInvalidateReceivables } from "@/features/receivables/useReceivables";
 import { uuidv7 } from "@/lib/uuid";
-import { Button, Input, Notice, Screen, Text } from "@/ui/primitives";
-import { useTokens } from "@/ui/tokens";
+import { FormScreen, Input, Text } from "@/ui/primitives";
 
 /** "Dividir / me deben": anota cuánto le corresponde a otra persona de un gasto. */
 export default function NewReceivableScreen() {
   const { transactionId } = useLocalSearchParams<{ transactionId: string }>();
   const router = useRouter();
-  const { spacing } = useTokens();
   const invalidate = useInvalidateReceivables();
 
   const [txn, setTxn] = useState<TransactionListItem | undefined>();
@@ -53,9 +50,9 @@ export default function NewReceivableScreen() {
   }
 
   return (
-    <Screen>
+    <>
       <Stack.Screen options={{ title: "Dividir / me deben" }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4] }}>
+      <FormScreen error={error} submitLabel="Guardar" onSubmit={() => void onSave()} busy={busy}>
         {txn ? (
           <Text variant="body" color="secondary">
             Gasto de {new Money(txn.amountCents).format()}
@@ -70,11 +67,7 @@ export default function NewReceivableScreen() {
           keyboardType="decimal-pad"
           placeholder="0.00"
         />
-        <View style={{ gap: spacing[2] }}>
-          {error ? <Notice tone="danger" text={error} /> : null}
-          <Button label={busy ? "Guardando…" : "Guardar"} onPress={() => void onSave()} disabled={busy} />
-        </View>
-      </ScrollView>
-    </Screen>
+      </FormScreen>
+    </>
   );
 }
