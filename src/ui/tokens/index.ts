@@ -1,10 +1,12 @@
 import { useColorScheme } from "react-native";
 
 import { darkColors, lightColors, type ColorTokens } from "./colors";
+import { dot, iconSize, opacity, stroke } from "./misc";
+import * as motion from "./motion";
 import { radii, spacing, minTouchTarget } from "./spacing";
 import { typography } from "./typography";
 
-export { spacing, radii, minTouchTarget, typography };
+export { spacing, radii, minTouchTarget, typography, motion, opacity, iconSize, dot, stroke };
 export type { ColorTokens };
 
 export interface Tokens {
@@ -13,6 +15,10 @@ export interface Tokens {
   radii: typeof radii;
   typography: typeof typography;
   minTouchTarget: typeof minTouchTarget;
+  opacity: typeof opacity;
+  iconSize: typeof iconSize;
+  dot: typeof dot;
+  stroke: typeof stroke;
 }
 
 /**
@@ -23,5 +29,5 @@ export interface Tokens {
 export function useTokens(): Tokens {
   const scheme = useColorScheme();
   const colors = scheme === "dark" ? darkColors : lightColors;
-  return { colors, spacing, radii, typography, minTouchTarget };
+  return { colors, spacing, radii, typography, minTouchTarget, opacity, iconSize, dot, stroke };
 }
