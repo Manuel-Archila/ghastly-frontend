@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addDays, addMonthsClamped, clampDay, daysBetween, todayIso } from "./dates";
+import {
+  addDays,
+  addMonthsClamped,
+  clampDay,
+  daysBetween,
+  formatDateLabel,
+  formatMonthLabel,
+  todayIso,
+} from "./dates";
 
 describe("clampDay", () => {
   it("returns the exact day when the month has it", () => {
@@ -50,5 +58,29 @@ describe("todayIso", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-28T01:30:00Z"));
     expect(todayIso()).toBe("2026-09-27");
+  });
+});
+
+describe("formatMonthLabel", () => {
+  it("capitalizes the Spanish month name", () => {
+    expect(formatMonthLabel("2026-09")).toBe("Septiembre 2026");
+    expect(formatMonthLabel("2026-01")).toBe("Enero 2026");
+  });
+  it("accepts a full ISO date", () => {
+    expect(formatMonthLabel("2026-12-31")).toBe("Diciembre 2026");
+  });
+  it("returns the input untouched when it cannot parse", () => {
+    expect(formatMonthLabel("basura")).toBe("basura");
+    expect(formatMonthLabel("2026-13")).toBe("2026-13");
+  });
+});
+
+describe("formatDateLabel", () => {
+  it("formats day, short month and year", () => {
+    expect(formatDateLabel("2026-09-29")).toBe("29 sep 2026");
+    expect(formatDateLabel("2026-03-05")).toBe("5 mar 2026");
+  });
+  it("returns the input untouched when it cannot parse", () => {
+    expect(formatDateLabel("mañana")).toBe("mañana");
   });
 });

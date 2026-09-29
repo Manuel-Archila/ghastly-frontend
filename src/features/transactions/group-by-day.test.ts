@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupByDay } from "./group-by-day";
+import { flattenSections, groupByDay } from "./group-by-day";
 import type { TransactionListItem } from "@/data/repositories/transactions";
 
 function txn(over: Partial<TransactionListItem>): TransactionListItem {
@@ -75,5 +75,31 @@ describe("groupByDay", () => {
       "2026-09-15",
     );
     expect(sections.map((s) => s.isoDate)).toEqual(["2026-09-10", "2026-09-05", "2026-09-01"]);
+  });
+});
+
+describe("flattenSections", () => {
+  it("puts each day header before its items and reports header indices", () => {
+    const sections = groupByDay(
+      [
+        txn({ id: "a", date: "2026-09-05" }),
+        txn({ id: "b", date: "2026-09-05" }),
+        txn({ id: "c", date: "2026-09-04" }),
+      ],
+      "2026-09-05",
+    );
+    const { rows, headerIndices } = flattenSections(sections);
+    expect(rows.map((r) => (r.type === "header" ? `H:${r.title}` : `I:${r.key}`))).toEqual([
+      "H:Hoy",
+      "I:a",
+      "I:b",
+      "H:Ayer",
+      "I:c",
+    ]);
+    expect(headerIndices).toEqual([0, 3]);
+  });
+
+  it("returns empty for no sections", () => {
+    expect(flattenSections([])).toEqual({ rows: [], headerIndices: [] });
   });
 });

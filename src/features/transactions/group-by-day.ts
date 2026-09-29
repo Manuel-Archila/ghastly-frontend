@@ -42,3 +42,31 @@ export function groupByDay(items: TransactionListItem[], today: string): DaySect
       data,
     }));
 }
+
+export type FlatRow =
+  | { type: "header"; key: string; title: string; totalCents: number }
+  | { type: "item"; key: string; item: TransactionListItem };
+
+/**
+ * Aplana las secciones para una `FlashList` (que no tiene secciones): cada
+ * día es una fila `header` seguida de sus movimientos. `headerIndices` va a
+ * `stickyHeaderIndices` para que el día quede fijo al hacer scroll.
+ */
+export function flattenSections(sections: DaySection[]): {
+  rows: FlatRow[];
+  headerIndices: number[];
+} {
+  const rows: FlatRow[] = [];
+  const headerIndices: number[] = [];
+  for (const section of sections) {
+    headerIndices.push(rows.length);
+    rows.push({
+      type: "header",
+      key: `h-${section.isoDate}`,
+      title: section.title,
+      totalCents: section.totalCents,
+    });
+    for (const item of section.data) rows.push({ type: "item", key: item.id, item });
+  }
+  return { rows, headerIndices };
+}
