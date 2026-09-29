@@ -9,6 +9,7 @@ import { queryClient } from "@/data/query-client";
 import { listAccounts } from "@/data/repositories/accounts";
 import { useSessionStore } from "@/features/auth/session-store";
 import { useSyncOnForeground } from "@/features/sync/sync-manager";
+import { installBackgroundFlush } from "@/features/undo/flush-on-background";
 import { Text, ToastHost } from "@/ui/primitives";
 import { useReducedMotion } from "@/ui/useReducedMotion";
 import { useTokens } from "@/ui/tokens";
@@ -55,6 +56,7 @@ export default function RootLayout() {
   }, [status, segments, router]);
 
   useSyncOnForeground(status === "authenticated");
+  useEffect(() => installBackgroundFlush(), []);
 
   if (migrationsError) {
     return (

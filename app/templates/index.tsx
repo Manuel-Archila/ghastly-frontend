@@ -2,6 +2,7 @@ import { useRouter, Stack } from "expo-router";
 
 import { Money } from "@/domain/money";
 import { useTemplates } from "@/features/templates/useTemplates";
+import { useIsHiddenByDelete } from "@/features/undo/deferred-delete";
 import {
   Button,
   FadeIn,
@@ -13,7 +14,9 @@ import {
 
 export default function TemplatesScreen() {
   const router = useRouter();
-  const { templates, isLoading, isError, refetch } = useTemplates();
+  const { templates: all, isLoading, isError, refetch } = useTemplates();
+  const isHidden = useIsHiddenByDelete();
+  const templates = all.filter((t) => !isHidden("template", t.id));
 
   const status = isLoading ? "loading" : isError ? "error" : templates.length === 0 ? "empty" : "data";
 

@@ -7,7 +7,7 @@ import { deleteTemplate, updateTemplate, type TemplatePatch } from "@/data/api/t
 import { runSync } from "@/data/sync";
 import { TemplateForm, type TemplateSubmit } from "@/features/templates/TemplateForm";
 import { useInvalidateTemplates, useTemplates } from "@/features/templates/useTemplates";
-import { confirmDestructive } from "@/ui/confirm";
+import { deferDelete } from "@/features/undo/deferred-delete";
 import { Button, Screen, ScreenState, ScrollScreen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
@@ -64,22 +64,20 @@ export default function EditTemplateScreen() {
     }
   }
 
-  async function onDelete() {
-    const ok = await confirmDestructive(
-      `Eliminar ${current.name}`,
-      "Los movimientos que ya creaste con ella no cambian.",
-      "Eliminar",
-    );
-    if (!ok) return;
-    setBusy(true);
-    try {
-      await deleteTemplate(current.id);
-      await invalidate();
-      router.back();
-    } catch (e) {
-      setError(errorMessageFor(e));
-      setBusy(false);
-    }
+  function onDelete() {
+    // Sin diálogo: se oculta ya y el aviso ofrece Deshacer. El API se llama
+    // cuando el aviso expira. Los movimientos creados con ella no cambian.
+    deferDelete({
+      entity: "template",
+      id: current.id,
+      message: `${current.name} eliminada`,
+      failureMessage: "No se pudo eliminar la plantilla.",
+      perform: async () => {
+        await deleteTemplate(current.id);
+        await invalidate();
+      },
+    });
+    router.back();
   }
 
   return (
@@ -100,7 +98,7 @@ export default function EditTemplateScreen() {
         onSubmit={(v) => void onSubmit(v)}
       />
       <View style={{ gap: spacing[2] }}>
-        <Button label="Eliminar plantilla" variant="danger" disabled={busy} onPress={() => void onDelete()} />
+        <Button label="Eliminar plantilla" variant="danger" disabled={busy} onPress={onDelete} />
       </View>
     </ScrollScreen>
   );

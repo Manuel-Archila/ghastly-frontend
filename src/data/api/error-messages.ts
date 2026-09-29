@@ -16,6 +16,7 @@ const MESSAGES: Record<string, string> = {
   RECEIVABLE_ALREADY_SETTLED: "Ya está liquidado; no se puede cambiar.",
   TEMPLATE_NOT_FOUND: "No encontramos esa plantilla.",
   ACCOUNT_NOT_FOUND: "No encontramos esa cuenta.",
+  ACCOUNT_HAS_BALANCE: "La cuenta todavía tiene saldo. Volvé a intentar y confirmá para archivarla igual.",
   // Sesión
   INVALID_CREDENTIALS: "Correo o contraseña incorrectos.",
   EMAIL_TAKEN: "Ya existe una cuenta con ese correo.",

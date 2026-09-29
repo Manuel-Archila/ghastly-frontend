@@ -14,7 +14,7 @@ import {
 } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
 import { formatDateLabel, todayIso } from "@/lib/dates";
-import { confirmDestructive } from "@/ui/confirm";
+import { deferDelete } from "@/features/undo/deferred-delete";
 import {
   Button,
   Chip,
@@ -108,23 +108,20 @@ export default function InstallmentPlanScreen() {
     }
   }
 
-  async function onCancelPlan() {
+  function onCancelPlan() {
     if (!plan) return;
-    const ok = await confirmDestructive(
-      "Cancelar plan de cuotas",
-      "Las cuotas pendientes se eliminan; las que ya pagaste quedan como historial.",
-      "Cancelar plan",
-    );
-    if (!ok) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await deleteInstallmentPlan(plan.id);
-      router.back();
-    } catch (e) {
-      setError(errorMessageFor(e, "No se pudo cancelar."));
-      setBusy(false);
-    }
+    // Sin diálogo: se oculta ya y el aviso ofrece Deshacer. El API se llama
+    // cuando expira; ahí las cuotas pendientes se eliminan y las que ya
+    // pagaste quedan como historial.
+    const target = plan;
+    deferDelete({
+      entity: "installment-plan",
+      id: target.id,
+      message: `Plan "${target.description}" cancelado`,
+      failureMessage: "No se pudo cancelar el plan.",
+      perform: () => deleteInstallmentPlan(target.id),
+    });
+    router.back();
   }
 
   if (!plan) {

@@ -1,15 +1,14 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, Switch, View } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import { deleteAccount } from "@/data/api/accounts";
-import { errorMessageFor } from "@/data/api/error-messages";
-import { ApiError } from "@/data/api/client";
 import {
   listAccounts,
   markAccountArchivedLocally,
   type Account,
 } from "@/data/repositories/accounts";
+import { deferDelete, useDeleteVersion, useIsHiddenByDelete } from "@/features/undo/deferred-delete";
 import { getHiddenAccountIds, setAccountHidden } from "@/lib/hiddenAccounts";
 import {
   Button,
@@ -20,7 +19,6 @@ import {
   Screen,
   ScreenState,
   Text,
-  showToast,
 } from "@/ui/primitives";
 import { confirmDestructive } from "@/ui/confirm";
 import { useTokens } from "@/ui/tokens";
@@ -29,22 +27,32 @@ export default function AccountsScreen() {
   const router = useRouter();
   const { spacing, colors } = useTokens();
 
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [allAccounts, setAccounts] = useState<Account[]>([]);
   const [loaded, setLoaded] = useState(false);
+  // "Ocultar en Hoy": preferencia local del usuario, distinta de un borrado.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const isHiddenByDelete = useIsHiddenByDelete();
+  const deleteVersion = useDeleteVersion();
 
-  const load = useCallback(async () => {
-    const [accs, hiddenIds] = await Promise.all([listAccounts(), getHiddenAccountIds()]);
-    setAccounts(accs);
-    setHidden(hiddenIds);
-    setLoaded(true);
+  const load = useCallback(() => {
+    void Promise.all([listAccounts(), getHiddenAccountIds()]).then(([accs, hiddenIds]) => {
+      setAccounts(accs);
+      setHidden(hiddenIds);
+      setLoaded(true);
+    });
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
+  useFocusEffect(load);
+
+  // También se recarga cada vez que termina un borrado.
+  useEffect(() => {
+    if (deleteVersion > 0) load();
+  }, [deleteVersion, load]);
+
+  // Lo que está por archivarse (aviso de Deshacer en curso) ya no se muestra.
+  const accounts = useMemo(
+    () => allAccounts.filter((a) => !isHiddenByDelete("account", a.id)),
+    [allAccounts, isHiddenByDelete],
   );
 
   async function onToggleHidden(id: string, value: boolean) {
@@ -57,35 +65,32 @@ export default function AccountsScreen() {
     });
   }
 
-  async function performDelete(id: string, force: boolean) {
-    setBusyId(id);
-    try {
-      await deleteAccount(id, force);
-      await markAccountArchivedLocally(id);
-      await load();
-    } catch (e) {
-      if (e instanceof ApiError && e.code === "ACCOUNT_HAS_BALANCE") {
-        const archiveAnyway = await confirmDestructive(
-          "La cuenta tiene saldo",
-          "Todavía tiene un saldo distinto de cero. ¿Archivarla igual?",
-          "Archivar igual",
-        );
-        if (archiveAnyway) void performDelete(id, true);
-      } else {
-        showToast({ message: errorMessageFor(e, "No se pudo borrar. Intentá de nuevo.") });
-      }
-    } finally {
-      setBusyId(null);
+  async function onDelete(account: Account) {
+    // Con saldo, el servidor exige confirmar (409). Con el borrado diferido ese
+    // error llegaría 5 s después, cuando el usuario ya se fue: se pregunta antes,
+    // con el saldo que conocemos localmente.
+    let force = false;
+    if (account.currentBalanceCents !== 0) {
+      const archiveAnyway = await confirmDestructive(
+        "La cuenta tiene saldo",
+        `"${account.name}" todavía tiene un saldo distinto de cero. ¿Archivarla igual?`,
+        "Archivar igual",
+      );
+      if (!archiveAnyway) return;
+      force = true;
     }
-  }
-
-  async function confirmDelete(account: Account) {
-    const ok = await confirmDestructive(
-      "Borrar cuenta",
-      `"${account.name}" se archiva — deja de aparecer en la app, pero su historial se conserva.`,
-      "Borrar",
-    );
-    if (ok) void performDelete(account.id, false);
+    // Sin diálogo si no tiene saldo: se oculta ya y el aviso ofrece Deshacer. El
+    // API se llama cuando expira; el historial de la cuenta se conserva.
+    deferDelete({
+      entity: "account",
+      id: account.id,
+      message: `${account.name} archivada`,
+      failureMessage: "No se pudo archivar la cuenta.",
+      perform: async () => {
+        await deleteAccount(account.id, force);
+        await markAccountArchivedLocally(account.id);
+      },
+    });
   }
 
   const status = !loaded ? "loading" : accounts.length === 0 ? "empty" : "data";
@@ -132,11 +137,10 @@ export default function AccountsScreen() {
                     trackColor={{ false: colors.border.control, true: colors.accent.bg }}
                   />
                   <Button
-                    label={busyId === a.id ? "Borrando…" : "Borrar"}
+                    label="Borrar"
                     variant="danger"
                     fullWidth={false}
-                    disabled={busyId === a.id}
-                    onPress={() => void confirmDelete(a)}
+                    onPress={() => void onDelete(a)}
                   />
                 </View>
               </Card>

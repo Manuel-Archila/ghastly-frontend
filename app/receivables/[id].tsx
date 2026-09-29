@@ -8,9 +8,9 @@ import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { pullChanges } from "@/data/sync";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { useInvalidateReceivables, useReceivables } from "@/features/receivables/useReceivables";
+import { deferDelete } from "@/features/undo/deferred-delete";
 import { formatDateLabel, todayIso } from "@/lib/dates";
 import { uuidv7 } from "@/lib/uuid";
-import { confirmDestructive } from "@/ui/confirm";
 import {
   Button,
   Chip,
@@ -101,17 +101,21 @@ export default function ReceivableDetailScreen() {
     });
   }
 
-  async function onDelete() {
-    const ok = await confirmDestructive(
-      "Eliminar",
-      `Se borra lo que te debe ${receivable!.counterparty}. El gasto original no cambia.`,
-      "Eliminar",
-    );
-    if (!ok) return;
-    await run(async () => {
-      await deleteReceivable(receivable!.id);
-      router.back();
+  function onDelete() {
+    // Sin diálogo: se oculta ya y el aviso ofrece Deshacer. El API se llama
+    // cuando expira. El gasto original no cambia.
+    const target = receivable!;
+    deferDelete({
+      entity: "receivable",
+      id: target.id,
+      message: `Se quitó lo que te debe ${target.counterparty}`,
+      failureMessage: "No se pudo eliminar.",
+      perform: async () => {
+        await deleteReceivable(target.id);
+        await invalidate();
+      },
     });
+    router.back();
   }
 
   async function onSettle() {
@@ -173,7 +177,7 @@ export default function ReceivableDetailScreen() {
 
       <View style={{ gap: spacing[2] }}>
         <Button label="Guardar cambios" disabled={settled || busy} onPress={() => void onSave()} />
-        <Button label="Eliminar" variant="danger" disabled={settled || busy} onPress={() => void onDelete()} />
+        <Button label="Eliminar" variant="danger" disabled={settled || busy} onPress={onDelete} />
       </View>
 
       {!settled ? (
