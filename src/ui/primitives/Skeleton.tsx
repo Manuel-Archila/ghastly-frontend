@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { AccessibilityInfo, Animated } from "react-native";
+import Animated from "react-native-reanimated";
 
 import { useTokens } from "@/ui/tokens";
+import { duration } from "@/ui/tokens/motion";
+import { useReducedMotion } from "@/ui/useReducedMotion";
 
 export interface SkeletonProps {
   width?: number | `${number}%`;
@@ -9,49 +10,35 @@ export interface SkeletonProps {
   radius?: number;
 }
 
+const PULSE = {
+  animationName: { from: { opacity: 0.5 }, to: { opacity: 1 } },
+  animationDuration: duration.pulse,
+  animationDirection: "alternate",
+  animationIterationCount: "infinite",
+  animationTimingFunction: "ease-in-out",
+} as const;
+
 /**
  * Placeholder con la forma del contenido — nunca un spinner centrado
- * (CLAUDE.md). El pulso respeta "Reducir movimiento": si está activo en el
- * sistema, queda estático en vez de animar.
+ * (CLAUDE.md). El pulso es una animación CSS de Reanimated (hilo de UI). Con
+ * "Reducir movimiento" queda estático en vez de animar.
  */
 export function Skeleton({ width = "100%", height = 16, radius }: SkeletonProps) {
   const { colors, radii } = useTokens();
-  const [opacity] = useState(() => new Animated.Value(0.5));
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (!cancelled) setReduceMotion(enabled);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (reduceMotion) return;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [reduceMotion, opacity]);
-
+  const reduceMotion = useReducedMotion();
   return (
     <Animated.View
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
-      style={{
-        width,
-        height,
-        borderRadius: radius ?? radii.sm,
-        backgroundColor: colors.bg.sunken,
-        opacity: reduceMotion ? 0.7 : opacity,
-      }}
+      style={[
+        {
+          width,
+          height,
+          borderRadius: radius ?? radii.sm,
+          backgroundColor: colors.border.subtle,
+        },
+        reduceMotion ? { opacity: 0.75 } : PULSE,
+      ]}
     />
   );
 }

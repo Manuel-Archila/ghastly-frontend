@@ -1,4 +1,6 @@
-import { Animated, Pressable, type PressableProps, type PressableStateCallbackType, type ViewStyle } from "react-native";
+import { Pressable, type PressableProps, type PressableStateCallbackType, type ViewStyle } from "react-native";
+
+import Animated from "react-native-reanimated";
 
 import { Text } from "@/ui/primitives/Text";
 import { useTokens } from "@/ui/tokens";
@@ -31,8 +33,8 @@ export function Button({
   onPressOut,
   ...props
 }: ButtonProps) {
-  const { colors, spacing, radii, minTouchTarget } = useTokens();
-  const { scale, onPressIn: animateIn, onPressOut: animateOut } = usePressScale();
+  const { colors, spacing, radii, minTouchTarget, opacity } = useTokens();
+  const { pressStyle, onPressIn: animateIn, onPressOut: animateOut } = usePressScale();
 
   const backgrounds: Record<Variant, string> = {
     primary: colors.accent.bg,
@@ -47,19 +49,24 @@ export function Button({
     danger: colors.danger.fg,
   };
 
+  // Deshabilitado: tono apagado con texto legible, no un 50 % de opacidad
+  // que dejaba el botón primario en ~2:1 de contraste.
+  const background = disabled && variant !== "ghost" ? colors.bg.sunken : backgrounds[variant];
+  const textColor = disabled ? colors.text.tertiary : textColors[variant];
+
   const baseStyle: ViewStyle = {
     minHeight: minTouchTarget,
     borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: spacing[5],
-    backgroundColor: backgrounds[variant],
-    opacity: disabled ? 0.5 : 1,
+    backgroundColor: background,
     alignSelf: fullWidth ? "stretch" : "flex-start",
   };
 
   return (
     <Pressable
+      {...props}
       accessibilityRole="button"
       accessibilityState={{ disabled: Boolean(disabled) }}
       disabled={disabled}
@@ -74,12 +81,11 @@ export function Button({
       style={(state: PressableStateCallbackType) => [
         baseStyle,
         typeof style === "function" ? style(state) : style,
-        state.pressed && { opacity: 0.85 },
+        state.pressed && { opacity: opacity.pressed },
       ]}
-      {...props}
     >
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <Text variant="bodyStrong" style={{ color: textColors[variant] }}>
+      <Animated.View style={pressStyle}>
+        <Text variant="bodyStrong" style={{ color: textColor }}>
           {label}
         </Text>
       </Animated.View>

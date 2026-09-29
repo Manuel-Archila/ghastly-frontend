@@ -4,39 +4,29 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 
 import {
   createRefundLocally,
-  deleteTransactionLocally,
   getTransaction,
   type TransactionListItem,
 } from "@/data/repositories/transactions";
 import { triggerSync } from "@/features/sync/sync-manager";
-import { formatForKind, Money } from "@/domain/money";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { deleteTransactionWithUndo } from "@/features/transactions/delete-with-undo";
+import type { TransactionKind } from "@/domain/money";
+import { formatDateLabel } from "@/lib/dates";
+import {
+  Button,
+  Card,
+  DetailRow,
+  MoneyText,
+  Screen,
+  ScreenState,
+  ScrollScreen,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
-
-function Row({ label, value }: { label: string; value: string }) {
-  const { spacing, colors } = useTokens();
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        justifyContent: "space-between",
-        paddingVertical: spacing[2],
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border.subtle,
-      }}
-    >
-      <Text variant="caption" color="secondary">
-        {label}
-      </Text>
-      <Text variant="body">{value}</Text>
-    </View>
-  );
-}
 
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { spacing, colors } = useTokens();
+  const { spacing } = useTokens();
   const [txn, setTxn] = useState<TransactionListItem | undefined>();
 
   useFocusEffect(
@@ -49,20 +39,15 @@ export default function TransactionDetailScreen() {
     return (
       <Screen>
         <Stack.Screen options={{ title: "Movimiento" }} />
-        <Text variant="body" color="secondary">
-          Cargando…
-        </Text>
+        <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
       </Screen>
     );
   }
 
-  const kind = txn.kind as "expense" | "income" | "transfer";
-  const color =
-    kind === "transfer" ? colors.transfer.fg : kind === "income" ? colors.income.fg : colors.expense.fg;
+  const kind = txn.kind as TransactionKind;
 
   async function onDelete() {
-    await deleteTransactionLocally(id);
-    triggerSync();
+    await deleteTransactionWithUndo(id);
     router.back();
   }
 
@@ -74,22 +59,20 @@ export default function TransactionDetailScreen() {
   }
 
   return (
-    <Screen style={{ gap: spacing[4] }}>
+    <ScrollScreen>
       <Stack.Screen options={{ title: txn.description ?? txn.categoryName ?? "Movimiento" }} />
 
-      <Text variant="display" style={{ color }}>
-        {formatForKind(new Money(txn.amountCents), kind)}
-      </Text>
+      <MoneyText cents={txn.amountCents} currency={txn.currency} kind={kind} variant="display" />
 
-      <View>
-        {txn.description ? <Row label="Descripción" value={txn.description} /> : null}
-        <Row label="Categoría" value={txn.categoryName ?? "Sin categoría"} />
-        <Row label="Cuenta" value={txn.accountName ?? "—"} />
-        <Row label="Fecha" value={txn.date} />
-        {txn.merchant ? <Row label="Comercio" value={txn.merchant} /> : null}
-        {txn.notes ? <Row label="Notas" value={txn.notes} /> : null}
-        <Row label="Sincronizado" value={txn.serverSeq > 0 ? "sí" : "pendiente ⟳"} />
-      </View>
+      <Card style={{ gap: spacing[3] }}>
+        {txn.description ? <DetailRow label="Descripción" value={txn.description} /> : null}
+        <DetailRow label="Categoría" value={txn.categoryName ?? "Sin categoría"} />
+        <DetailRow label="Cuenta" value={txn.accountName ?? "—"} />
+        <DetailRow label="Fecha" value={formatDateLabel(txn.date)} />
+        {txn.merchant ? <DetailRow label="Comercio" value={txn.merchant} /> : null}
+        {txn.notes ? <DetailRow label="Notas" value={txn.notes} /> : null}
+        <DetailRow label="Sincronizado" value={txn.serverSeq > 0 ? "sí" : "pendiente ⟳"} />
+      </Card>
 
       {kind !== "transfer" ? (
         <View style={{ gap: spacing[2] }}>
@@ -107,10 +90,10 @@ export default function TransactionDetailScreen() {
           <Button label="Eliminar" variant="danger" onPress={onDelete} />
         </View>
       ) : (
-        <Text variant="caption" color="tertiary">
+        <Text variant="caption" color="secondary">
           Las transferencias se editan desde sus dos cuentas.
         </Text>
       )}
-    </Screen>
+    </ScrollScreen>
   );
 }

@@ -3,7 +3,7 @@ import { ScrollView, Switch, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 
 import { useNotificationPreferences } from "@/features/notifications/useNotificationPreferences";
-import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, Input, Screen, ScreenState, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 const THRESHOLD_OPTIONS = [50, 80, 90, 100];
@@ -73,9 +73,7 @@ export default function NotificationPreferencesScreen() {
     return (
       <Screen>
         <Stack.Screen options={{ title: "Notificaciones" }} />
-        <Text variant="body" color="secondary">
-          Cargando…
-        </Text>
+        <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
       </Screen>
     );
   }

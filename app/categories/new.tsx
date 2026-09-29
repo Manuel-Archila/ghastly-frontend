@@ -1,12 +1,10 @@
 import { useCallback, useState } from "react";
-import { ScrollView } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import { createCategoryLocally, listCategories, type Category } from "@/data/repositories/categories";
 import { CategoryForm, type CategoryFormValues } from "@/features/categories/CategoryForm";
 import { triggerSync } from "@/features/sync/sync-manager";
-import { Screen } from "@/ui/primitives";
-import { useTokens } from "@/ui/tokens";
+import { FormScreen } from "@/ui/primitives";
 
 const EMPTY: CategoryFormValues = {
   name: "",
@@ -19,7 +17,6 @@ const EMPTY: CategoryFormValues = {
 
 export default function NewCategoryScreen() {
   const router = useRouter();
-  const { spacing } = useTokens();
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -44,9 +41,9 @@ export default function NewCategoryScreen() {
   }
 
   return (
-    <Screen>
+    <>
       <Stack.Screen options={{ title: "Nueva categoría" }} />
-      <ScrollView contentContainerStyle={{ paddingVertical: spacing[4], paddingBottom: spacing[8] }}>
+      <FormScreen>
         {categories ? (
           <CategoryForm
             categories={categories}
@@ -56,7 +53,7 @@ export default function NewCategoryScreen() {
             onSubmit={(v) => void onSubmit(v)}
           />
         ) : null}
-      </ScrollView>
-    </Screen>
+      </FormScreen>
+    </>
   );
 }

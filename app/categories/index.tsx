@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, Switch, View } from "react-native";
+import { Switch, View } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import { errorMessageFor } from "@/data/api/error-messages";
@@ -10,12 +10,22 @@ import {
 import { flattenTree } from "@/domain/categoryTree";
 import { asIconName } from "@/features/categories/presets";
 import { seedCategoriesFromServer } from "@/features/categories/seed";
-import { Button, FadeIn, Icon, Notice, Screen, SegmentedControl, Text } from "@/ui/primitives";
+import {
+  Button,
+  FadeIn,
+  Icon,
+  ListItem,
+  Notice,
+  ScreenState,
+  ScrollScreen,
+  SegmentedControl,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function CategoriesScreen() {
   const router = useRouter();
-  const { spacing, colors, minTouchTarget } = useTokens();
+  const { spacing, colors } = useTokens();
 
   const [all, setAll] = useState<Category[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -42,6 +52,7 @@ export default function CategoriesScreen() {
   );
 
   async function onSeed() {
+    if (seeding) return;
     setSeeding(true);
     setError(null);
     try {
@@ -53,91 +64,74 @@ export default function CategoriesScreen() {
     setSeeding(false);
   }
 
+  const status = !loaded ? "loading" : rows.length === 0 ? "empty" : "data";
+
   return (
-    <Screen>
+    <ScrollScreen>
       <Stack.Screen options={{ title: "Categorías" }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4] }}>
-        <SegmentedControl
-          options={[
-            { value: "expense", label: "Gastos" },
-            { value: "income", label: "Ingresos" },
-          ]}
-          value={kind}
-          onChange={setKind}
+      <SegmentedControl
+        options={[
+          { value: "expense", label: "Gastos" },
+          { value: "income", label: "Ingresos" },
+        ]}
+        value={kind}
+        onChange={setKind}
+      />
+
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Text variant="caption" color="secondary">
+          Ver archivadas
+        </Text>
+        <Switch
+          accessibilityLabel="Ver archivadas"
+          value={showArchived}
+          onValueChange={setShowArchived}
+          trackColor={{ false: colors.border.control, true: colors.accent.bg }}
         />
+      </View>
 
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text variant="caption" color="secondary">
-            Ver archivadas
-          </Text>
-          <Switch value={showArchived} onValueChange={setShowArchived} />
-        </View>
+      {error ? <Notice tone="danger" text={error} /> : null}
 
-        {error ? <Notice tone="danger" text={error} /> : null}
-
-        {loaded && rows.length === 0 ? (
-          <View style={{ gap: spacing[2] }}>
-            <Text variant="body" color="secondary">
-              Todavía no hay categorías de este tipo.
-            </Text>
-            <Button
-              label={seeding ? "Cargando…" : "Cargar categorías por defecto"}
-              variant="secondary"
-              disabled={seeding}
-              onPress={() => void onSeed()}
-            />
-          </View>
-        ) : null}
-
+      <ScreenState
+        status={status}
+        empty={{
+          message: "Todavía no hay categorías de este tipo.",
+          icon: "pricetags-outline",
+          actionLabel: seeding ? "Cargando…" : "Cargar categorías por defecto",
+          onAction: () => void onSeed(),
+        }}
+      >
         <View>
           {rows.map(({ category, depth }, index) => {
             const icon = asIconName(category.icon);
             return (
-              <FadeIn key={category.id} delay={Math.min(index, 10) * 20}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    category.isArchived ? `${category.name}, archivada` : category.name
-                  }
-                  onPress={() => router.push(`/categories/${category.id}`)}
-                  style={({ pressed }) => ({
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: spacing[3],
-                    minHeight: minTouchTarget,
-                    paddingVertical: spacing[2],
-                    paddingLeft: depth === 1 ? spacing[6] : 0,
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.border.subtle,
-                    opacity: pressed ? 0.6 : category.isArchived ? 0.6 : 1,
-                  })}
-                >
-                  <Icon name={icon ?? "pricetag-outline"} color={category.color ?? undefined} />
-                  <Text variant={depth === 1 ? "body" : "bodyStrong"} style={{ flex: 1 }}>
-                    {category.name}
-                  </Text>
-                  {category.isArchived ? (
-                    <Text variant="caption" color="tertiary">
-                      Archivada
-                    </Text>
-                  ) : null}
-                  <Icon name="chevron-forward" size={16} />
-                </Pressable>
+              <FadeIn key={category.id} delay={index * 20}>
+                <View style={{ paddingLeft: depth === 1 ? spacing[6] : 0 }}>
+                  <ListItem
+                    leading={<Icon name={icon ?? "pricetag-outline"} color={category.color ?? undefined} />}
+                    title={category.name}
+                    subtitle={category.isArchived ? "Archivada" : undefined}
+                    strong={depth === 0}
+                    accessibilityLabel={category.isArchived ? `${category.name}, archivada` : category.name}
+                    onPress={() => router.push(`/categories/${category.id}`)}
+                    last={index === rows.length - 1}
+                  />
+                </View>
               </FadeIn>
             );
           })}
         </View>
 
-        <Button label="+ Nueva categoría" onPress={() => router.push("/categories/new")} />
-        {rows.length > 0 ? (
-          <Button
-            label={seeding ? "Cargando…" : "Cargar categorías por defecto"}
-            variant="ghost"
-            disabled={seeding}
-            onPress={() => void onSeed()}
-          />
-        ) : null}
-      </ScrollView>
-    </Screen>
+        <Button
+          label={seeding ? "Cargando…" : "Cargar categorías por defecto"}
+          variant="ghost"
+          disabled={seeding}
+          onPress={() => void onSeed()}
+        />
+      </ScreenState>
+
+      {/* Siempre disponible, también con la lista vacía. */}
+      <Button label="Nueva categoría" onPress={() => router.push("/categories/new")} />
+    </ScrollScreen>
   );
 }

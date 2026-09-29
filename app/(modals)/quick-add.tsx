@@ -13,11 +13,12 @@ import { Money, parseCentsFromInput } from "@/domain/money";
 import type { TemplateOut } from "@/data/api/templates";
 import { triggerSync } from "@/features/sync/sync-manager";
 import { loadCachedTemplates, refreshTemplateCache } from "@/lib/templateCache";
+import { todayIso } from "@/lib/dates";
 import { Button, Chip, Input, KeypadNumeric, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayIso();
 }
 
 /**
@@ -91,16 +92,23 @@ export default function QuickAddScreen() {
   async function onTemplate(t: TemplateOut) {
     if (busy) return;
     setBusy(true);
-    await createTransactionLocally({
-      accountId: t.account_id,
-      categoryId: t.category_id,
-      kind: t.kind,
-      amountCents: t.amount_cents,
-      date: today(),
-      description: t.description ?? t.name,
-      currency: "GTQ",
-      templateId: t.id,
-    });
+    try {
+      await createTransactionLocally({
+        accountId: t.account_id,
+        categoryId: t.category_id,
+        kind: t.kind,
+        amountCents: t.amount_cents,
+        date: today(),
+        description: t.description ?? t.name,
+        currency: "GTQ",
+        templateId: t.id,
+      });
+    } catch {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setWarning("No se pudo guardar. Probá de nuevo.");
+      setBusy(false);
+      return;
+    }
     triggerSync();
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
@@ -113,27 +121,32 @@ export default function QuickAddScreen() {
     setBusy(true);
     setWarning(null);
 
-    const dup = await findPossibleDuplicate(accountId, cents);
-    await createTransactionLocally({
-      accountId,
-      categoryId,
-      kind,
-      amountCents: cents,
-      date: today(),
-      description: description.trim() || null,
-      currency,
-      fxRate: needsFxRate && fxRate !== null ? fxRate : undefined,
-    });
-    triggerSync();
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    try {
+      const dup = await findPossibleDuplicate(accountId, cents);
+      await createTransactionLocally({
+        accountId,
+        categoryId,
+        kind,
+        amountCents: cents,
+        date: today(),
+        description: description.trim() || null,
+        currency,
+        fxRate: needsFxRate && fxRate !== null ? fxRate : undefined,
+      });
+      triggerSync();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    if (dup) {
-      setWarning(`¿Repetido? Registraste ${new Money(cents).format()} hace unos minutos.`);
-      setBusy(false);
+      if (dup) {
+        setWarning(`¿Repetido? Registraste ${new Money(cents).format()} hace unos minutos.`);
+      }
       return true;
+    } catch {
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setWarning("No se pudo guardar. Probá de nuevo.");
+      return false;
+    } finally {
+      setBusy(false);
     }
-    setBusy(false);
-    return true;
   }
 
   async function onSave() {

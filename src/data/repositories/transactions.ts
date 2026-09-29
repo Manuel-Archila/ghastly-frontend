@@ -4,6 +4,7 @@ import { db } from "@/data/db/client";
 import { accounts, categories, outboxMutations, transactions } from "@/data/db/schema";
 import { signedDelta, type AccountType } from "@/domain/balances";
 import { Money } from "@/domain/money";
+import { planTransactionRestore, type RestoreOutcome } from "@/domain/undo";
 import { uuidv7 } from "@/lib/uuid";
 
 export type Transaction = typeof transactions.$inferSelect;
@@ -177,9 +178,18 @@ export async function createTransferLocally(input: CreateTransferInput): Promise
 export interface UpdateTransactionInput {
   categoryId?: string | null;
   date?: string;
+  amountCents?: number;
   description?: string | null;
   merchant?: string | null;
   notes?: string | null;
+}
+
+/** El monto NO se puede editar en estas — el backend las rechaza con 422
+ * (`transaction_service._locked_amount_reason`) porque otra fila ya asume
+ * que su monto coincide con el de la transacción. La UI debe consultar esto
+ * antes de mostrar el campo de monto como editable. */
+export function amountIsLocked(txn: Pick<Transaction, "kind" | "installmentId" | "receivableId">): boolean {
+  return txn.kind === "transfer" || txn.installmentId !== null || txn.receivableId !== null;
 }
 
 export async function updateTransactionLocally(
@@ -188,10 +198,49 @@ export async function updateTransactionLocally(
 ): Promise<void> {
   const now = new Date().toISOString();
   await db.transaction(async (tx) => {
-    await tx.update(transactions).set({ ...patch, updatedAt: now }).where(eq(transactions.id, id));
+    const fieldPatch: Record<string, unknown> = { ...patch, updatedAt: now };
+
+    if (patch.amountCents !== undefined) {
+      const rows = await tx.select().from(transactions).where(eq(transactions.id, id)).limit(1);
+      const existing = rows[0];
+      if (existing && patch.amountCents !== existing.amountCents && !amountIsLocked(existing)) {
+        // Optimista, igual que crear: el servidor es la autoridad, pero así el
+        // saldo/presupuesto local no muestran mal hasta el próximo sync. La
+        // diferencia se calcula con DOS montos siempre positivos (signedDelta
+        // no acepta negativos), nunca restando a mano.
+        const accountRows = await tx
+          .select()
+          .from(accounts)
+          .where(eq(accounts.id, existing.accountId))
+          .limit(1);
+        const account = accountRows[0];
+        if (account) {
+          const kind = existing.kind as "expense" | "income";
+          const accountType = account.type as AccountType;
+          const oldDelta = signedDelta(
+            { kind, amountCents: existing.amountCents, transferDirection: null },
+            accountType,
+          );
+          const newDelta = signedDelta(
+            { kind, amountCents: patch.amountCents, transferDirection: null },
+            accountType,
+          );
+          await tx
+            .update(accounts)
+            .set({ currentBalanceCents: account.currentBalanceCents + (newDelta - oldDelta), updatedAt: now })
+            .where(eq(accounts.id, account.id));
+        }
+        fieldPatch.baseAmountCents = existing.fxRate
+          ? new Money(patch.amountCents, existing.currency).convert(existing.fxRate, "GTQ").cents
+          : patch.amountCents;
+      }
+    }
+
+    await tx.update(transactions).set(fieldPatch).where(eq(transactions.id, id));
     const payload: Record<string, unknown> = {};
     if (patch.categoryId !== undefined) payload.category_id = patch.categoryId;
     if (patch.date !== undefined) payload.date = patch.date;
+    if (patch.amountCents !== undefined) payload.amount_cents = patch.amountCents;
     if (patch.description !== undefined) payload.description = patch.description;
     if (patch.merchant !== undefined) payload.merchant = patch.merchant;
     if (patch.notes !== undefined) payload.notes = patch.notes;
@@ -286,6 +335,79 @@ export async function deleteTransactionLocally(id: string): Promise<void> {
       createdAt: now,
     });
   });
+}
+
+/**
+ * "Deshacer" de un borrado (ver `domain/undo.ts` para el porqué de los dos
+ * caminos). Si el borrado sigue en el outbox se cancela y el movimiento vuelve
+ * con el mismo id; si ya se subió, se recrea como uno nuevo — solo cuando no
+ * estaba ligado a una transferencia, cuota, cobro o reembolso.
+ */
+export async function restoreDeletedTransactionLocally(id: string): Promise<RestoreOutcome> {
+  const now = new Date().toISOString();
+
+  const { outcome, recreate } = await db.transaction(
+    async (tx): Promise<{ outcome: RestoreOutcome; recreate: CreateTransactionInput | null }> => {
+      const [txn] = await tx.select().from(transactions).where(eq(transactions.id, id)).limit(1);
+      if (!txn) return { outcome: "impossible", recreate: null };
+
+      const [pending] = await tx
+        .select()
+        .from(outboxMutations)
+        .where(
+          and(
+            eq(outboxMutations.entityType, "transaction"),
+            eq(outboxMutations.entityId, id),
+            eq(outboxMutations.op, "delete"),
+          ),
+        )
+        .limit(1);
+
+      const plan = planTransactionRestore(txn, Boolean(pending));
+      if (plan === "already-active") return { outcome: "restored", recreate: null };
+      if (plan === "impossible") return { outcome: "impossible", recreate: null };
+
+      if (plan === "cancel-pending-delete") {
+        await tx
+          .delete(outboxMutations)
+          .where(eq(outboxMutations.clientMutationId, pending.clientMutationId));
+        await tx
+          .update(transactions)
+          .set({ deletedAt: null, updatedAt: now })
+          .where(eq(transactions.id, id));
+        if (txn.kind !== "transfer") {
+          // Simétrico al borrado: vuelve a contar en el saldo optimista.
+          await applyBalanceDelta(
+            tx,
+            txn.accountId,
+            txn.kind as "expense" | "income",
+            txn.amountCents,
+            null,
+            now,
+          );
+        }
+        return { outcome: "restored", recreate: null };
+      }
+
+      return {
+        outcome: "recreated",
+        recreate: {
+          accountId: txn.accountId,
+          categoryId: txn.categoryId,
+          kind: txn.kind as "expense" | "income",
+          amountCents: txn.amountCents,
+          date: txn.date,
+          description: txn.description,
+          currency: txn.currency,
+          fxRate: txn.fxRate ?? undefined,
+        },
+      };
+    },
+  );
+
+  // Fuera de la transacción: `createTransactionLocally` abre la suya.
+  if (recreate) await createTransactionLocally(recreate);
+  return outcome;
 }
 
 export interface TransactionFilters {

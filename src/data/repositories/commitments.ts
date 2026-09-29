@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lte, or } from "drizzle-orm";
 
 import { db } from "@/data/db/client";
 import { debts, goals, installmentPlans, installments, recurringRules } from "@/data/db/schema";
@@ -21,6 +21,17 @@ export async function listRecurringRules(): Promise<RecurringRule[]> {
     .orderBy(recurringRules.nextDueDate);
 }
 
+/** Sin filtrar por status: la pantalla de detalle también necesita mostrar
+ * una regla pausada. */
+export async function getRecurringRule(id: string): Promise<RecurringRule | undefined> {
+  const rows = await db
+    .select()
+    .from(recurringRules)
+    .where(and(eq(recurringRules.id, id), isNull(recurringRules.deletedAt)))
+    .limit(1);
+  return rows[0];
+}
+
 export interface SubscriptionSummary {
   totalMonthlyCents: number;
   totalAnnualizedCents: number;
@@ -29,6 +40,9 @@ export interface SubscriptionSummary {
     monthlyEquivalentCents: number;
     priceIncreased: boolean;
   }[];
+  /** Pausadas: no suman al total, pero necesitan aparecer en algún lado
+   * para poder reanudarlas o borrarlas. */
+  paused: RecurringRule[];
 }
 
 export async function computeSubscriptionSummary(): Promise<SubscriptionSummary> {
@@ -38,13 +52,14 @@ export async function computeSubscriptionSummary(): Promise<SubscriptionSummary>
     .where(
       and(
         isNull(recurringRules.deletedAt),
-        eq(recurringRules.status, "active"),
         eq(recurringRules.kind, "expense"),
+        or(eq(recurringRules.status, "active"), eq(recurringRules.status, "paused")),
       ),
     );
 
   let totalMonthlyCents = 0;
   const items = rules
+    .filter((rule) => rule.status === "active")
     .map((rule) => {
       const monthly = monthlyEquivalentCents(
         rule.amountCents,
@@ -60,7 +75,9 @@ export async function computeSubscriptionSummary(): Promise<SubscriptionSummary>
     })
     .sort((a, b) => b.monthlyEquivalentCents - a.monthlyEquivalentCents);
 
-  return { totalMonthlyCents, totalAnnualizedCents: totalMonthlyCents * 12, items };
+  const paused = rules.filter((rule) => rule.status === "paused");
+
+  return { totalMonthlyCents, totalAnnualizedCents: totalMonthlyCents * 12, items, paused };
 }
 
 // --- Cuotas ---

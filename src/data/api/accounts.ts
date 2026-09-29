@@ -13,3 +13,15 @@ import { api } from "@/data/api/client";
 export function deleteAccount(id: string, force = false): Promise<void> {
   return api.delete(`/accounts/${id}${force ? "?force=true" : ""}`);
 }
+
+export interface AccountRemote {
+  id: string;
+  current_balance_cents: number;
+  updated_at: string;
+}
+
+/** Para reconciliar el saldo LOCAL contra el del servidor cuando un
+ * conflicto de sync deja el optimista desincronizado (push.ts). */
+export function getAccountRemote(id: string): Promise<AccountRemote> {
+  return api.get(`/accounts/${id}`);
+}

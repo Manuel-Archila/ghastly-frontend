@@ -4,12 +4,25 @@ import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import { computeSubscriptionSummary, type SubscriptionSummary } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
-import { Button, FadeIn, Icon, Screen, Text } from "@/ui/primitives";
+import { frequencyLabel } from "@/features/subscriptions/frequency-label";
+import { formatDateLabel } from "@/lib/dates";
+import {
+  Button,
+  FadeIn,
+  HeroFigure,
+  Icon,
+  ListItem,
+  MoneyText,
+  Screen,
+  ScreenState,
+  SectionHeader,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function SubscriptionsScreen() {
   const router = useRouter();
-  const { spacing, colors } = useTokens();
+  const { spacing, colors, iconSize } = useTokens();
   const [summary, setSummary] = useState<SubscriptionSummary | null>(null);
 
   useFocusEffect(
@@ -18,56 +31,84 @@ export default function SubscriptionsScreen() {
     }, []),
   );
 
+  const status = !summary
+    ? "loading"
+    : summary.items.length === 0 && summary.paused.length === 0
+      ? "empty"
+      : "data";
+
   return (
     <Screen>
       <Stack.Screen options={{ title: "Suscripciones" }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4] }}>
+      <ScrollView contentContainerStyle={{ gap: spacing[5], paddingVertical: spacing[4] }}>
         {summary ? (
-          <View style={{ gap: spacing[1] }}>
-            <Text variant="display">{new Money(summary.totalMonthlyCents).format()}/mes</Text>
-            <Text variant="caption" color="secondary">
-              {new Money(summary.totalAnnualizedCents).format()} al año
-            </Text>
-          </View>
+          <HeroFigure
+            label="Costo mensual"
+            value={new Money(summary.totalMonthlyCents).format()}
+            subtitle={`${new Money(summary.totalAnnualizedCents).format()} al año`}
+          />
         ) : null}
 
-        <Button label="Nueva suscripción" onPress={() => router.push("/subscriptions/new")} />
+        <ScreenState
+          status={status}
+          empty={{
+            message: "No hay suscripciones activas.",
+            icon: "repeat-outline",
+            actionLabel: "Nueva suscripción",
+            onAction: () => router.push("/subscriptions/new"),
+          }}
+        >
+          {summary && summary.items.length === 0 ? (
+            <Text variant="body" color="secondary">
+              No hay suscripciones activas.
+            </Text>
+          ) : null}
 
-        {summary?.items.map(({ rule, monthlyEquivalentCents, priceIncreased }, index) => (
-          <FadeIn key={rule.id} delay={index * 30}>
-            <View
-              style={{
-                gap: 2,
-                paddingVertical: spacing[2],
-                borderBottomWidth: 1,
-                borderBottomColor: colors.border.subtle,
-              }}
-            >
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text variant="body">{rule.name}</Text>
-                <Text variant="bodyStrong">{new Money(rule.amountCents).format()}</Text>
-              </View>
-              <Text variant="caption" color="tertiary">
-                {rule.frequency} · {new Money(monthlyEquivalentCents).format()}/mes · próximo{" "}
-                {rule.nextDueDate}
-              </Text>
+          {summary?.items.map(({ rule, monthlyEquivalentCents, priceIncreased }, index) => (
+            <FadeIn key={rule.id} delay={index * 30}>
+              <ListItem
+                title={rule.name}
+                subtitle={`${frequencyLabel(rule.frequency)} · ${new Money(monthlyEquivalentCents).format()}/mes · próximo ${formatDateLabel(rule.nextDueDate)}`}
+                trailing={<MoneyText cents={rule.amountCents} />}
+                onPress={() => router.push(`/subscriptions/${rule.id}`)}
+                last={!priceIncreased}
+              />
               {priceIncreased ? (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[1] }}>
-                  <Icon name="warning-outline" size={14} color={colors.warning.fg} />
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: spacing[1],
+                    paddingBottom: spacing[2],
+                  }}
+                >
+                  <Icon name="warning-outline" size={iconSize.sm} color={colors.warning.fg} />
                   <Text variant="caption" style={{ color: colors.warning.fg }}>
-                    subió de precio
+                    Subió de precio
                   </Text>
                 </View>
               ) : null}
-            </View>
-          </FadeIn>
-        ))}
+            </FadeIn>
+          ))}
 
-        {summary && summary.items.length === 0 ? (
-          <Text variant="body" color="secondary">
-            No hay suscripciones activas.
-          </Text>
-        ) : null}
+          {summary && summary.paused.length > 0 ? (
+            <View>
+              <SectionHeader label="Pausadas" />
+              {summary.paused.map((rule, index) => (
+                <ListItem
+                  key={rule.id}
+                  title={rule.name}
+                  subtitle={frequencyLabel(rule.frequency)}
+                  trailing={<MoneyText cents={rule.amountCents} variant="body" />}
+                  onPress={() => router.push(`/subscriptions/${rule.id}`)}
+                  last={index === summary.paused.length - 1}
+                />
+              ))}
+            </View>
+          ) : null}
+
+          <Button label="Nueva suscripción" onPress={() => router.push("/subscriptions/new")} />
+        </ScreenState>
       </ScrollView>
     </Screen>
   );

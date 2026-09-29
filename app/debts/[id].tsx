@@ -1,14 +1,30 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
+import * as Haptics from "expo-haptics";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { recordDebtPayment } from "@/data/api/commitments";
-import { ApiError, api } from "@/data/api/client";
+import { errorMessageFor } from "@/data/api/error-messages";
+import { api } from "@/data/api/client";
 import { getDebt, type Debt } from "@/data/repositories/commitments";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
-import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
+import {
+  Button,
+  Chip,
+  ChipGroup,
+  HeroFigure,
+  Input,
+  ListItem,
+  MoneyText,
+  Notice,
+  Screen,
+  ScreenState,
+  ScrollScreen,
+  SectionHeader,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 interface AmortRow {
@@ -19,9 +35,11 @@ interface AmortRow {
   remaining_balance_cents: number;
 }
 
+const AMORT_PREVIEW_ROWS = 6;
+
 export default function DebtDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { spacing, colors } = useTokens();
+  const { spacing } = useTokens();
 
   const [debt, setDebt] = useState<Debt | undefined>();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -66,8 +84,10 @@ export default function DebtDetailScreen() {
       });
       setAmount("");
       await load();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo registrar.");
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setError(errorMessageFor(e, "No se pudo registrar."));
     } finally {
       setBusy(false);
     }
@@ -77,61 +97,57 @@ export default function DebtDetailScreen() {
     return (
       <Screen>
         <Stack.Screen options={{ title: "Deuda" }} />
-        <Text variant="body" color="secondary">
-          Cargando…
-        </Text>
+        <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
       </Screen>
     );
   }
 
   return (
-    <Screen>
+    <ScrollScreen>
       <Stack.Screen options={{ title: debt.name }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <View>
-          <Text variant="caption" color="secondary">
-            Saldo
-          </Text>
-          <Text variant="display" style={{ color: colors.expense.fg }}>
-            {new Money(debt.balanceCents).format()}
-          </Text>
-        </View>
+      <HeroFigure label="Saldo" value={new Money(debt.balanceCents).format()} />
 
-        <View style={{ gap: spacing[2] }}>
-          <Text variant="caption" color="secondary">
-            Registrar pago (el interés se separa solo)
-          </Text>
-          <Input value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="Monto del pago" />
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-            {accounts.map((a) => (
-              <Chip key={a.id} label={a.name} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
-            ))}
-          </View>
-          {error ? (
-            <Text variant="caption" style={{ color: colors.danger.fg }}>
-              {error}
+      <View style={{ gap: spacing[3] }}>
+        <SectionHeader label="Registrar pago" />
+        <Text variant="caption" color="secondary">
+          El interés se separa solo.
+        </Text>
+        <Input
+          label="Monto del pago"
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="decimal-pad"
+          placeholder="0.00"
+        />
+        <ChipGroup label="Pagar desde">
+          {accounts.map((a) => (
+            <Chip key={a.id} label={a.name} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
+          ))}
+        </ChipGroup>
+        {error ? <Notice tone="danger" text={error} /> : null}
+        <Button label={busy ? "Registrando…" : "Registrar pago"} onPress={onPay} disabled={busy} />
+      </View>
+
+      {amort.length > 0 ? (
+        <View>
+          <SectionHeader label="Plan de amortización" />
+          {amort.slice(0, AMORT_PREVIEW_ROWS).map((r, index, rows) => (
+            <ListItem
+              key={r.number}
+              title={`Cuota ${r.number}`}
+              subtitle={`Capital ${new Money(r.principal_cents).format()} · interés ${new Money(r.interest_cents).format()}`}
+              trailing={<MoneyText cents={r.remaining_balance_cents} variant="caption" />}
+              accessibilityLabel={`Cuota ${r.number}, saldo restante ${new Money(r.remaining_balance_cents).format()}`}
+              last={index === rows.length - 1}
+            />
+          ))}
+          {amort.length > AMORT_PREVIEW_ROWS ? (
+            <Text variant="caption" color="secondary" style={{ paddingTop: spacing[2] }}>
+              Se muestran las primeras {AMORT_PREVIEW_ROWS} de {amort.length} cuotas.
             </Text>
           ) : null}
-          <Button label={busy ? "Registrando…" : "Registrar pago"} onPress={onPay} disabled={busy} />
         </View>
-
-        {amort.length > 0 ? (
-          <View style={{ gap: spacing[1] }}>
-            <Text variant="caption" color="secondary">
-              PLAN DE AMORTIZACIÓN
-            </Text>
-            {amort.slice(0, 6).map((r) => (
-              <View key={r.number} style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text variant="caption">
-                  #{r.number} · cap {new Money(r.principal_cents).format()} · int{" "}
-                  {new Money(r.interest_cents).format()}
-                </Text>
-                <Text variant="caption">{new Money(r.remaining_balance_cents).format()}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
-      </ScrollView>
-    </Screen>
+      ) : null}
+    </ScrollScreen>
   );
 }

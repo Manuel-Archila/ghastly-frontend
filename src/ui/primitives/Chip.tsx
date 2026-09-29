@@ -1,4 +1,6 @@
-import { Animated, Pressable, type PressableProps, type PressableStateCallbackType } from "react-native";
+import { Pressable, type PressableProps, type PressableStateCallbackType } from "react-native";
+
+import Animated from "react-native-reanimated";
 
 import { Text } from "@/ui/primitives/Text";
 import { useTokens } from "@/ui/tokens";
@@ -14,11 +16,12 @@ export interface ChipProps extends PressableProps {
  * que necesitamos para pintar `selected`/`pressed`. La escala animada va
  * en un `Animated.View` interno. */
 export function Chip({ label, selected = false, style, onPressIn, onPressOut, ...props }: ChipProps) {
-  const { colors, spacing, radii, minTouchTarget } = useTokens();
-  const { scale, onPressIn: animateIn, onPressOut: animateOut } = usePressScale();
+  const { colors, spacing, radii, minTouchTarget, opacity, stroke } = useTokens();
+  const { pressStyle, onPressIn: animateIn, onPressOut: animateOut } = usePressScale();
 
   return (
     <Pressable
+      {...props}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       onPressIn={(e) => {
@@ -35,16 +38,15 @@ export function Chip({ label, selected = false, style, onPressIn, onPressOut, ..
           justifyContent: "center",
           paddingHorizontal: spacing[3],
           borderRadius: radii.sm,
-          borderWidth: 1,
-          borderColor: selected ? colors.accent.bg : colors.border.subtle,
+          borderWidth: stroke.control,
+          borderColor: selected ? colors.accent.bg : colors.border.control,
           backgroundColor: selected ? colors.accent.bg : colors.bg.surface,
-          opacity: state.pressed ? 0.85 : 1,
+          opacity: state.pressed ? opacity.pressed : 1,
         },
         typeof style === "function" ? style(state) : style,
       ]}
-      {...props}
     >
-      <Animated.View style={{ transform: [{ scale }] }}>
+      <Animated.View style={pressStyle}>
         <Text variant="body" style={{ color: selected ? colors.accent.fg : colors.text.primary }}>
           {label}
         </Text>

@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 import * as Haptics from "expo-haptics";
 
 import { evaluateKeypadExpression } from "@/domain/keypad-expression";
+import { Icon } from "@/ui/primitives/Icon";
 import { Text } from "@/ui/primitives/Text";
 import { useTokens } from "@/ui/tokens";
 
@@ -22,7 +23,7 @@ export interface KeypadNumericProps {
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"] as const;
 
 export function KeypadNumeric({ onChange }: KeypadNumericProps) {
-  const { colors, spacing, radii } = useTokens();
+  const { colors, spacing, radii, minTouchTarget, iconSize } = useTokens();
   const [expr, setExpr] = useState("");
 
   const emit = useCallback(
@@ -66,7 +67,8 @@ export function KeypadNumeric({ onChange }: KeypadNumericProps) {
   const keyStyle = {
     flexGrow: 1,
     flexBasis: "30%" as const,
-    minHeight: 56,
+    // Teclas de dígito más grandes que el mínimo: se aporrean con el pulgar.
+    minHeight: minTouchTarget + spacing[2],
     alignItems: "center" as const,
     justifyContent: "center" as const,
     borderRadius: radii.md,
@@ -82,7 +84,14 @@ export function KeypadNumeric({ onChange }: KeypadNumericProps) {
             accessibilityRole="button"
             accessibilityLabel={op === "+" ? "sumar" : "restar"}
             onPress={() => pressOperator(op)}
-            style={[keyStyle, { flexBasis: "48%", minHeight: 44, backgroundColor: colors.bg.sunken }]}
+            style={({ pressed }) => [
+              keyStyle,
+              {
+                flexBasis: "48%",
+                minHeight: minTouchTarget,
+                backgroundColor: pressed ? colors.border.subtle : colors.bg.sunken,
+              },
+            ]}
           >
             <Text variant="title2">{op === "-" ? "−" : "+"}</Text>
           </Pressable>
@@ -93,11 +102,15 @@ export function KeypadNumeric({ onChange }: KeypadNumericProps) {
           <Pressable
             key={key}
             accessibilityRole="button"
-            accessibilityLabel={key === "⌫" ? "borrar" : key}
+            accessibilityLabel={key === "⌫" ? "borrar" : key === "." ? "punto decimal" : key}
             onPress={() => press(key)}
             style={({ pressed }) => [keyStyle, pressed && { backgroundColor: colors.bg.sunken }]}
           >
-            <Text variant="title2">{key}</Text>
+            {key === "⌫" ? (
+              <Icon name="backspace-outline" size={iconSize.lg} color={colors.text.primary} />
+            ) : (
+              <Text variant="title2">{key}</Text>
+            )}
           </Pressable>
         ))}
       </View>

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { api } from "@/data/api/client";
 import { db } from "@/data/db/client";
@@ -68,6 +68,7 @@ async function applyAccount(p: Record<string, unknown>): Promise<void> {
       statementDay: (p.statement_day as number | null) ?? null,
       paymentDueDay: (p.payment_due_day as number | null) ?? null,
       interestRate: (p.interest_rate as number | null) ?? null,
+      minimumPaymentPercent: (p.minimum_payment_percent as number | null) ?? null,
       createdAt: p.created_at as string,
       updatedAt: p.updated_at as string,
     })
@@ -76,6 +77,15 @@ async function applyAccount(p: Record<string, unknown>): Promise<void> {
       set: {
         name: p.name as string,
         institution: (p.institution as string | null) ?? null,
+        lastFour: (p.last_four as string | null) ?? null,
+        color: (p.color as string | null) ?? null,
+        icon: (p.icon as string | null) ?? null,
+        sortOrder: (p.sort_order as number | undefined) ?? 0,
+        creditLimitCents: (p.credit_limit_cents as number | null) ?? null,
+        statementDay: (p.statement_day as number | null) ?? null,
+        paymentDueDay: (p.payment_due_day as number | null) ?? null,
+        interestRate: (p.interest_rate as number | null) ?? null,
+        minimumPaymentPercent: (p.minimum_payment_percent as number | null) ?? null,
         // El saldo es derivado: gana el servidor (PLAN-frontend §3).
         currentBalanceCents: p.current_balance_cents as number,
         isArchived: p.is_archived as boolean,
@@ -125,36 +135,39 @@ async function applyTransaction(p: Record<string, unknown>, op: "upsert" | "dele
       .where(eq(transactions.id, p.id as string));
     return;
   }
+  const v = {
+    id: p.id as string,
+    accountId: p.account_id as string,
+    categoryId: (p.category_id as string | null) ?? null,
+    kind: p.kind as string,
+    amountCents: p.amount_cents as number,
+    currency: p.currency as string,
+    fxRate: (p.fx_rate as number | null) ?? null,
+    baseAmountCents: (p.base_amount_cents as number | null) ?? null,
+    date: p.date as string,
+    description: (p.description as string | null) ?? null,
+    merchant: (p.merchant as string | null) ?? null,
+    notes: (p.notes as string | null) ?? null,
+    transferGroupId: (p.transfer_group_id as string | null) ?? null,
+    transferDirection: (p.transfer_direction as string | null) ?? null,
+    refundOfId: (p.refund_of_id as string | null) ?? null,
+    isReconciled: (p.is_reconciled as boolean | undefined) ?? false,
+    isTaxRelevant: (p.is_tax_relevant as boolean | undefined) ?? false,
+    isExtraordinary: (p.is_extraordinary as boolean | undefined) ?? false,
+    affectsClosedPeriod: (p.affects_closed_period as boolean | undefined) ?? false,
+    receiptKey: (p.receipt_key as string | null) ?? null,
+    tags: (p.tags as string[] | undefined) ?? [],
+    installmentId: (p.installment_id as string | null) ?? null,
+    recurringRuleId: (p.recurring_rule_id as string | null) ?? null,
+    receivableId: (p.receivable_id as string | null) ?? null,
+    createdAt: p.created_at as string,
+    updatedAt: p.updated_at as string,
+    deletedAt: null as string | null,
+  };
   await db
     .insert(transactions)
-    .values({
-      id: p.id as string,
-      accountId: p.account_id as string,
-      categoryId: (p.category_id as string | null) ?? null,
-      kind: p.kind as string,
-      amountCents: p.amount_cents as number,
-      currency: p.currency as string,
-      fxRate: (p.fx_rate as number | null) ?? null,
-      baseAmountCents: (p.base_amount_cents as number | null) ?? null,
-      date: p.date as string,
-      description: (p.description as string | null) ?? null,
-      merchant: (p.merchant as string | null) ?? null,
-      notes: (p.notes as string | null) ?? null,
-      transferGroupId: (p.transfer_group_id as string | null) ?? null,
-      transferDirection: (p.transfer_direction as string | null) ?? null,
-      tags: (p.tags as string[] | undefined) ?? [],
-      createdAt: p.created_at as string,
-      updatedAt: p.updated_at as string,
-    })
-    .onConflictDoUpdate({
-      target: transactions.id,
-      set: {
-        categoryId: (p.category_id as string | null) ?? null,
-        description: (p.description as string | null) ?? null,
-        updatedAt: p.updated_at as string,
-        deletedAt: null,
-      },
-    });
+    .values(v)
+    .onConflictDoUpdate({ target: transactions.id, set: v });
 }
 
 async function applyBudget(p: Record<string, unknown>): Promise<void> {
@@ -333,6 +346,13 @@ export async function softDelete(entityType: string, id: string): Promise<void> 
     await db.update(recurringRules).set({ deletedAt: now }).where(eq(recurringRules.id, id));
   } else if (entityType === "installment_plan") {
     await db.update(installmentPlans).set({ deletedAt: now }).where(eq(installmentPlans.id, id));
+    // El backend borra FÍSICO las cuotas pendientes al cancelar el plan (no
+    // hay deletedAt en `installments` ni un change_log por cada una) — se
+    // replica acá para no dejar cuotas fantasma. Las pagadas quedan, como
+    // historial, igual que en el servidor.
+    await db
+      .delete(installments)
+      .where(and(eq(installments.planId, id), eq(installments.status, "pending")));
   } else if (entityType === "debt") {
     await db.update(debts).set({ deletedAt: now }).where(eq(debts.id, id));
   } else if (entityType === "goal") {
@@ -340,45 +360,66 @@ export async function softDelete(entityType: string, id: string): Promise<void> 
   }
 }
 
-/** Trae y aplica todos los cambios del servidor desde el último cursor. */
-export async function pullChanges(): Promise<number> {
+async function applyChange(change: SyncChange): Promise<void> {
+  if (change.op === "delete" && change.entity_type !== "transaction") {
+    await softDelete(change.entity_type, change.entity_id);
+  } else if (change.entity_type === "account") {
+    await applyAccount(change.payload);
+  } else if (change.entity_type === "category") {
+    await applyCategory(change.payload);
+  } else if (change.entity_type === "transaction") {
+    await applyTransaction(change.payload, change.op);
+  } else if (change.entity_type === "budget") {
+    await applyBudget(change.payload);
+  } else if (change.entity_type === "budget_item") {
+    await applyBudgetItem(change.payload);
+  } else if (change.entity_type === "recurring_rule") {
+    await applyRecurringRule(change.payload);
+  } else if (change.entity_type === "installment_plan") {
+    await applyInstallmentPlan(change.payload);
+  } else if (change.entity_type === "installment") {
+    await applyInstallment(change.payload);
+  } else if (change.entity_type === "debt") {
+    await applyDebt(change.payload);
+  } else if (change.entity_type === "goal") {
+    await applyGoal(change.payload);
+  }
+  // budget_period / debt_payment / goal_contribution / receivable /
+  // transaction_template: se traen cuando haya pantalla local que los use.
+}
+
+/** Trae y aplica todos los cambios del servidor desde el último cursor.
+ *
+ * Cada cambio se aplica en su propio try/catch: si UNO falla (un tipo de
+ * dato inesperado, una fila que todavía no existe localmente, lo que sea),
+ * el resto de la página se sigue aplicando y el cursor avanza igual — la
+ * alternativa es que ese ítem roto trabe la sincronización de TODO lo que
+ * venga después, para siempre, sin que nada lo avise (mismo criterio que
+ * `/sync/push` en el backend: un error de una mutación no tumba el lote).
+ * Los que fallaron quedan en `failed` para que quien llame decida si avisa. */
+export async function pullChanges(): Promise<{ applied: number; failed: number }> {
   let cursor = await getCursor();
   let applied = 0;
+  let failed = 0;
 
   for (;;) {
     const page = await api.get<SyncPullResponse>(`/sync/pull?since=${cursor}&limit=500`);
     for (const change of page.changes) {
-      if (change.op === "delete" && change.entity_type !== "transaction") {
-        await softDelete(change.entity_type, change.entity_id);
-      } else if (change.entity_type === "account") {
-        await applyAccount(change.payload);
-      } else if (change.entity_type === "category") {
-        await applyCategory(change.payload);
-      } else if (change.entity_type === "transaction") {
-        await applyTransaction(change.payload, change.op);
-      } else if (change.entity_type === "budget") {
-        await applyBudget(change.payload);
-      } else if (change.entity_type === "budget_item") {
-        await applyBudgetItem(change.payload);
-      } else if (change.entity_type === "recurring_rule") {
-        await applyRecurringRule(change.payload);
-      } else if (change.entity_type === "installment_plan") {
-        await applyInstallmentPlan(change.payload);
-      } else if (change.entity_type === "installment") {
-        await applyInstallment(change.payload);
-      } else if (change.entity_type === "debt") {
-        await applyDebt(change.payload);
-      } else if (change.entity_type === "goal") {
-        await applyGoal(change.payload);
+      try {
+        await applyChange(change);
+        applied += 1;
+      } catch (e) {
+        failed += 1;
+        console.error(
+          `[sync] no se pudo aplicar ${change.entity_type} ${change.entity_id} (seq ${change.server_seq}):`,
+          e,
+        );
       }
-      // budget_period / debt_payment / goal_contribution: se traen cuando
-      // haya pantalla de historial que los use.
-      applied += 1;
     }
     cursor = page.next_seq;
     await setCursor(cursor);
     if (!page.has_more) break;
   }
 
-  return applied;
+  return { applied, failed };
 }

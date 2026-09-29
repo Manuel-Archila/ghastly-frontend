@@ -16,6 +16,28 @@ const MESSAGES: Record<string, string> = {
   RECEIVABLE_ALREADY_SETTLED: "Ya está liquidado; no se puede cambiar.",
   TEMPLATE_NOT_FOUND: "No encontramos esa plantilla.",
   ACCOUNT_NOT_FOUND: "No encontramos esa cuenta.",
+  // Sesión
+  INVALID_CREDENTIALS: "Correo o contraseña incorrectos.",
+  EMAIL_TAKEN: "Ya existe una cuenta con ese correo.",
+  REGISTRATION_DISABLED: "El registro está cerrado por ahora.",
+  RATE_LIMITED: "Hiciste varios intentos seguidos. Esperá un momento y probá de nuevo.",
+  // Genérico: el servidor rechazó un dato. Sin `field` no podemos decir cuál.
+  VALIDATION_ERROR: "Revisá los datos: hay un campo que no es válido.",
+  // Deudas
+  DEBT_NOT_FOUND: "No encontramos esa deuda.",
+  DEBT_PAYMENT_TOO_SMALL: "El pago no alcanza para cubrir el interés y las comisiones.",
+  DEBT_MISSING_TERM: "Esta deuda no tiene plazo definido, así que no se puede armar su plan de pagos.",
+  DEBT_AMORTIZATION_ERROR: "No se pudo calcular el plan de pagos con esos datos.",
+  // Metas
+  GOAL_NOT_FOUND: "No encontramos esa meta.",
+  // Cuotas
+  INSTALLMENT_PLAN_NOT_FOUND: "No encontramos ese plan de cuotas.",
+  INSTALLMENT_NOT_FOUND: "No encontramos esa cuota.",
+  INSTALLMENT_NOT_PENDING: "Esa cuota ya no está pendiente.",
+  // Suscripciones y moneda extranjera
+  RECURRING_RULE_NOT_FOUND: "No encontramos esa suscripción.",
+  RECURRING_RULE_NOT_ACTIVE: "Esa suscripción está pausada.",
+  FX_RATE_REQUIRED: "Falta la tasa de cambio para una cuenta en otra moneda.",
 };
 
 export function errorMessageFor(e: unknown, fallback = "Algo salió mal. Intentá de nuevo."): string {

@@ -1,8 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { Tabs, useRouter } from "expo-router";
-import { Pressable, View, type ColorValue } from "react-native";
+import { Pressable, type ColorValue } from "react-native";
+import Animated from "react-native-reanimated";
 
 import { useTokens } from "@/ui/tokens";
+import { usePressScale } from "@/ui/usePressScale";
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -17,7 +20,8 @@ function tabIcon(active: IconName, inactive: IconName) {
  * registrar un gasto en < 10 s, siempre a un tap desde cualquier tab). */
 function AddButton() {
   const router = useRouter();
-  const { colors, spacing, minTouchTarget } = useTokens();
+  const { colors, spacing, minTouchTarget, radii, opacity } = useTokens();
+  const { pressStyle, onPressIn, onPressOut } = usePressScale();
   // El círculo se ve del tamaño de un ícono de la barra; el área táctil es
   // todo el espacio del tab (mínimo 48×48).
   const size = minTouchTarget - spacing[2];
@@ -26,26 +30,36 @@ function AddButton() {
       accessibilityRole="button"
       accessibilityLabel="Registrar gasto"
       onPress={() => router.push("/(modals)/quick-add")}
+      // Feedback al bajar el dedo, no al soltar: la captura es lo que más se
+      // toca y tiene que sentirse inmediata. Un solo háptico ligero por toque.
+      onPressIn={() => {
+        onPressIn();
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }}
+      onPressOut={onPressOut}
       style={({ pressed }) => ({
         flex: 1,
         minHeight: minTouchTarget,
         alignItems: "center",
         justifyContent: "center",
-        opacity: pressed ? 0.85 : 1,
+        opacity: pressed ? opacity.pressed : 1,
       })}
     >
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          alignItems: "center",
-          justifyContent: "center",
-          backgroundColor: colors.accent.bg,
-        }}
+      <Animated.View
+        style={[
+          {
+            width: size,
+            height: size,
+            borderRadius: radii.full,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.accent.bg,
+          },
+          pressStyle,
+        ]}
       >
         <Ionicons name="add" size={size * 0.7} color={colors.accent.fg} />
-      </View>
+      </Animated.View>
     </Pressable>
   );
 }
@@ -62,6 +76,9 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Las tabs son pares, no una jerarquía: cambiar entre ellas no se
+        // desliza ni se funde (se hace decenas de veces al día).
+        animation: "none",
         tabBarActiveTintColor: colors.accent.bg,
         tabBarInactiveTintColor: colors.text.tertiary,
         tabBarStyle: {

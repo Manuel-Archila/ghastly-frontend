@@ -6,7 +6,7 @@ import { getAccount, type Account } from "@/data/repositories/accounts";
 import { computeCurrentCycle, type CreditCycle } from "@/domain/creditCycle";
 import { Money } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { Button, Screen, ScreenState, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 /** Detalle de tarjeta — modelo mental distinto: lo consumido en el corte,
@@ -32,9 +32,7 @@ export default function StatementScreen() {
     return (
       <Screen>
         <Stack.Screen options={{ title: "Estado de cuenta" }} />
-        <Text variant="body" color="secondary">
-          Cargando…
-        </Text>
+        <ScreenState status="loading" skeleton="detail">{null}</ScreenState>
       </Screen>
     );
   }

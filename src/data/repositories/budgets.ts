@@ -10,7 +10,9 @@ import {
   suggestedDailyPace,
   summarizeHierarchy,
 } from "@/domain/budget";
+import { planRestore, type RestoreOutcome } from "@/domain/undo";
 import { uuidv7 } from "@/lib/uuid";
+import { todayIso } from "@/lib/dates";
 
 export type Budget = typeof budgets.$inferSelect;
 
@@ -146,7 +148,7 @@ function monthBounds(month: string): { start: string; end: string; days: number 
 }
 
 function daysElapsed(month: string, days: number): number {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const currentMonth = today.slice(0, 7);
   if (currentMonth < month) return 0;
   if (currentMonth > month) return days;
@@ -169,10 +171,11 @@ export async function upsertBudgetItemLocally(
   categoryId: string,
   amountCents: number,
   existingItemId?: string,
-): Promise<void> {
+): Promise<string> {
   // Fuera de la transacción: lee con el `db` global, no con `tx`.
   if (!existingItemId) await assertItemCategoryAllowed(budgetId, categoryId);
   const now = new Date().toISOString();
+  const newId = uuidv7();
   await db.transaction(async (tx) => {
     if (existingItemId) {
       await tx
@@ -190,7 +193,7 @@ export async function upsertBudgetItemLocally(
       });
       return;
     }
-    const id = uuidv7();
+    const id = newId;
     await tx
       .insert(budgetItems)
       .values({ id, budgetId, categoryId, amountCents, createdAt: now, updatedAt: now });
@@ -204,6 +207,7 @@ export async function upsertBudgetItemLocally(
       createdAt: now,
     });
   });
+  return existingItemId ?? newId;
 }
 
 /** Quita una categoría del presupuesto. Los gastos ya registrados no se
@@ -225,6 +229,77 @@ export async function removeBudgetItemLocally(itemId: string): Promise<void> {
       createdAt: now,
     });
   });
+}
+
+/**
+ * "Deshacer" de quitar una categoría del presupuesto (ver `domain/undo.ts`).
+ * Si el borrado sigue en el outbox se cancela y el ítem vuelve con el mismo id;
+ * si ya se subió, se recrea como ítem nuevo. Devuelve el id vigente del ítem.
+ * "impossible" si la categoría ya se volvió a agregar o dejó de existir.
+ */
+export async function restoreBudgetItemLocally(
+  itemId: string,
+): Promise<{ outcome: RestoreOutcome; itemId: string }> {
+  const now = new Date().toISOString();
+
+  const step = await db.transaction(
+    async (
+      tx,
+    ): Promise<
+      | { outcome: "restored" | "impossible" }
+      | { outcome: "recreated"; budgetId: string; categoryId: string; amountCents: number }
+    > => {
+      const [item] = await tx.select().from(budgetItems).where(eq(budgetItems.id, itemId)).limit(1);
+      if (!item) return { outcome: "impossible" };
+
+      const [pending] = await tx
+        .select()
+        .from(outboxMutations)
+        .where(
+          and(
+            eq(outboxMutations.entityType, "budget_item"),
+            eq(outboxMutations.entityId, itemId),
+            eq(outboxMutations.op, "delete"),
+          ),
+        )
+        .limit(1);
+
+      const plan = planRestore({
+        deletedAt: item.deletedAt,
+        hasPendingDelete: Boolean(pending),
+        canRecreate: true,
+      });
+      if (plan === "already-active") return { outcome: "restored" };
+      if (plan === "cancel-pending-delete") {
+        await tx
+          .delete(outboxMutations)
+          .where(eq(outboxMutations.clientMutationId, pending.clientMutationId));
+        await tx
+          .update(budgetItems)
+          .set({ deletedAt: null, updatedAt: now })
+          .where(eq(budgetItems.id, itemId));
+        return { outcome: "restored" };
+      }
+      return {
+        outcome: "recreated",
+        budgetId: item.budgetId,
+        categoryId: item.categoryId,
+        amountCents: item.amountCents,
+      };
+    },
+  );
+
+  if (step.outcome !== "recreated") return { outcome: step.outcome, itemId };
+
+  // Fuera de la transacción: `upsertBudgetItemLocally` abre la suya y valida
+  // que la categoría siga libre.
+  try {
+    const newId = await upsertBudgetItemLocally(step.budgetId, step.categoryId, step.amountCents);
+    return { outcome: "recreated", itemId: newId };
+  } catch (e) {
+    if (e instanceof BudgetRuleError) return { outcome: "impossible", itemId };
+    throw e;
+  }
 }
 
 /** Cambia la categoría de un ítem (ahora es editable en el servidor). */

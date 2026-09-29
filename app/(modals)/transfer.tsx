@@ -6,11 +6,12 @@ import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { createTransferLocally } from "@/data/repositories/transactions";
 import { triggerSync } from "@/features/sync/sync-manager";
 import { Money, parseCentsFromInput } from "@/domain/money";
+import { todayIso } from "@/lib/dates";
 import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayIso();
 }
 
 export default function TransferScreen() {

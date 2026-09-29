@@ -8,10 +8,20 @@ import { api } from "@/data/api/client";
 import { pullChanges } from "@/data/sync";
 import { uuidv7 } from "@/lib/uuid";
 
-async function createAndPull<T>(path: string, body: unknown, headers?: Record<string, string>): Promise<T> {
-  const data = await api.post<T>(path, body, headers);
-  await pullChanges();
+async function callAndPull<T>(label: string, call: () => Promise<T>): Promise<T> {
+  const data = await call();
+  const pull = await pullChanges();
+  if (pull.failed > 0) {
+    // El servidor ya lo aplicó (la llamada de arriba no lanzó) — esto solo
+    // significa que la pantalla local puede tardar en mostrarlo hasta el
+    // próximo sync. No se revierte nada.
+    console.error(`[commitments] ${label}: se aplicó en el servidor pero falló al bajarlo local`);
+  }
   return data;
+}
+
+function createAndPull<T>(path: string, body: unknown, headers?: Record<string, string>): Promise<T> {
+  return callAndPull(path, () => api.post<T>(path, body, headers));
 }
 
 export interface RecurringRuleInput {
@@ -65,6 +75,38 @@ export function resumeRecurringRule(ruleId: string) {
   return createAndPull(`/recurring-rules/${ruleId}/resume`, undefined);
 }
 
+export function skipNextRecurringRule(ruleId: string) {
+  return createAndPull(`/recurring-rules/${ruleId}/skip-next`, undefined);
+}
+
+export interface RecurringRulePatch {
+  name?: string;
+  categoryId?: string | null;
+  amountCents?: number;
+  endDate?: string | null;
+  autoCreate?: boolean;
+  reminderDaysBefore?: number;
+}
+
+export function updateRecurringRule(ruleId: string, patch: RecurringRulePatch) {
+  const body: Record<string, unknown> = {};
+  if (patch.name !== undefined) body.name = patch.name;
+  if (patch.categoryId !== undefined) body.category_id = patch.categoryId;
+  if (patch.amountCents !== undefined) body.amount_cents = patch.amountCents;
+  if (patch.endDate !== undefined) body.end_date = patch.endDate;
+  if (patch.autoCreate !== undefined) body.auto_create = patch.autoCreate;
+  if (patch.reminderDaysBefore !== undefined) body.reminder_days_before = patch.reminderDaysBefore;
+  return callAndPull(`PATCH /recurring-rules/${ruleId}`, () =>
+    api.patch(`/recurring-rules/${ruleId}`, body),
+  );
+}
+
+export function deleteRecurringRule(ruleId: string) {
+  return callAndPull(`DELETE /recurring-rules/${ruleId}`, () =>
+    api.delete(`/recurring-rules/${ruleId}`),
+  );
+}
+
 export interface InstallmentPlanInput {
   accountId: string;
   categoryId: string | null;
@@ -92,6 +134,28 @@ export function payInstallment(installmentId: string, dateIso: string) {
     `/installments/${installmentId}/pay`,
     { id: uuidv7(), date: dateIso },
     { "Idempotency-Key": uuidv7() },
+  );
+}
+
+export interface InstallmentPlanPatch {
+  description?: string;
+  merchant?: string | null;
+  categoryId?: string | null;
+}
+
+export function updateInstallmentPlan(planId: string, patch: InstallmentPlanPatch) {
+  const body: Record<string, unknown> = {};
+  if (patch.description !== undefined) body.description = patch.description;
+  if (patch.merchant !== undefined) body.merchant = patch.merchant;
+  if (patch.categoryId !== undefined) body.category_id = patch.categoryId;
+  return callAndPull(`PATCH /installment-plans/${planId}`, () =>
+    api.patch(`/installment-plans/${planId}`, body),
+  );
+}
+
+export function deleteInstallmentPlan(planId: string) {
+  return callAndPull(`DELETE /installment-plans/${planId}`, () =>
+    api.delete(`/installment-plans/${planId}`),
   );
 }
 

@@ -9,12 +9,28 @@ import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { countPendingOutbox } from "@/data/repositories/transactions";
 import { runSync } from "@/data/sync";
 import { computeCurrentCycle } from "@/domain/creditCycle";
-import { Money, formatForKind } from "@/domain/money";
+import { Money } from "@/domain/money";
 import { useDashboard } from "@/features/reports/useDashboard";
 import { clampDay, daysBetween, todayIso } from "@/lib/dates";
 import { getHiddenAccountIds } from "@/lib/hiddenAccounts";
-import { Button, Card, FadeIn, Icon, ProgressBar, Screen, Skeleton, Text } from "@/ui/primitives";
+import {
+  Button,
+  Card,
+  FadeIn,
+  HeroFigure,
+  ListItem,
+  MoneyText,
+  Notice,
+  ProgressBar,
+  ProgressRow,
+  Screen,
+  SectionHeader,
+  Skeleton,
+  StatCard,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
+import { useCountUp } from "@/ui/useCountUp";
 
 const LIABILITY_TYPES = new Set(["credit_card", "loan"]);
 
@@ -27,7 +43,7 @@ const UPCOMING_ICON: Record<UpcomingSourceType, keyof typeof Ionicons.glyphMap> 
 };
 
 function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+  return todayIso().slice(0, 7);
 }
 
 function monthLabel(month: string): string {
@@ -98,6 +114,9 @@ export default function TodayScreen() {
     }
   }, [loadLocal, refetch]);
 
+  // Antes de los return tempranos (reglas de hooks).
+  const availableCents = useCountUp(dashboard?.budget?.total_available_cents ?? null);
+
   if (isLoading && !dashboard) {
     return <DashboardSkeleton />;
   }
@@ -136,15 +155,13 @@ export default function TodayScreen() {
         </View>
 
         {budget ? (
-          <View style={{ gap: spacing[1] }}>
-            <Text variant="caption" color="secondary">
-              DISPONIBLE ESTE MES
-            </Text>
-            <Text variant="display">{new Money(budget.total_available_cents).format()}</Text>
+          <View style={{ gap: spacing[2] }}>
+            <HeroFigure
+              label="Disponible este mes"
+              value={new Money(availableCents ?? budget.total_available_cents).format()}
+              subtitle={`${overallPercent} % del presupuesto`}
+            />
             <ProgressBar percent={overallPercent} />
-            <Text variant="caption" color="secondary">
-              {overallPercent}% del presupuesto
-            </Text>
             <Text variant="caption" color="secondary">
               {projectionMessage(
                 budget.global_projected_cents,
@@ -163,46 +180,26 @@ export default function TodayScreen() {
         )}
 
         <View style={{ flexDirection: "row", gap: spacing[3] }}>
-          <Card style={{ flex: 1, gap: spacing[1] }}>
-            <Text variant="caption" color="secondary">
-              Ingresos
-            </Text>
-            <Text variant="bodyStrong" style={{ color: colors.income.fg }}>
-              {formatForKind(new Money(cashflow.income_cents), "income")}
-            </Text>
-          </Card>
-          <Card style={{ flex: 1, gap: spacing[1] }}>
-            <Text variant="caption" color="secondary">
-              Gastos
-            </Text>
-            <Text variant="bodyStrong" style={{ color: colors.expense.fg }}>
-              {formatForKind(new Money(cashflow.expense_cents), "expense")}
-            </Text>
-          </Card>
+          <StatCard label="Ingresos" cents={cashflow.income_cents} kind="income" />
+          <StatCard label="Gastos" cents={cashflow.expense_cents} kind="expense" />
         </View>
 
         {dashboard.receivable_cents > 0 ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Me deben ${new Money(dashboard.receivable_cents).format()}`}
-            onPress={() => router.push("/receivables")}
-          >
-            <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing[2] }}>
-              <Icon name="people-outline" />
-              <Text variant="body" style={{ flex: 1 }}>
-                Me deben
-              </Text>
-              <Text variant="bodyStrong">{new Money(dashboard.receivable_cents).format()}</Text>
-              <Icon name="chevron-forward" size={16} />
-            </Card>
-          </Pressable>
+          <Card style={{ paddingVertical: spacing[1] }}>
+            <ListItem
+              icon="people-outline"
+              title="Me deben"
+              trailing={<MoneyText cents={dashboard.receivable_cents} />}
+              accessibilityLabel={`Me deben ${new Money(dashboard.receivable_cents).format()}`}
+              onPress={() => router.push("/receivables")}
+              last
+            />
+          </Card>
         ) : null}
 
         {accounts.length > 0 ? (
           <View style={{ gap: spacing[2] }}>
-            <Text variant="caption" color="secondary">
-              CUENTAS
-            </Text>
+            <SectionHeader label="Cuentas" />
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: "row", gap: spacing[3] }}>
                 {accounts.map((a, index) => (
@@ -217,9 +214,7 @@ export default function TodayScreen() {
 
         {upcoming.length > 0 ? (
           <View style={{ gap: spacing[2] }}>
-            <Text variant="caption" color="secondary">
-              PRÓXIMOS VENCIMIENTOS
-            </Text>
+            <SectionHeader label="Próximos vencimientos" />
             {upcoming.map((item, index) => (
               <FadeIn key={`${item.source_type}-${item.source_id}`} delay={index * 30}>
                 <UpcomingRow item={item} />
@@ -230,9 +225,7 @@ export default function TodayScreen() {
 
         {topCategories.length > 0 ? (
           <View style={{ gap: spacing[3] }}>
-            <Text variant="caption" color="secondary">
-              EN QUÉ SE FUE
-            </Text>
+            <SectionHeader label="En qué se fue" />
             {topCategories.map((cat, index) => {
               const percent =
                 cashflow.expense_cents > 0
@@ -240,13 +233,12 @@ export default function TodayScreen() {
                   : 0;
               return (
                 <FadeIn key={cat.category_id} delay={index * 30}>
-                  <View style={{ gap: spacing[1] }}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                      <Text variant="body">{cat.category_name}</Text>
-                      <Text variant="bodyStrong">{new Money(cat.net_spent_cents).format()}</Text>
-                    </View>
-                    <ProgressBar percent={percent} color={colors.accent.bg} />
-                  </View>
+                  <ProgressRow
+                    label={cat.category_name}
+                    percent={percent}
+                    valueText={new Money(cat.net_spent_cents).format()}
+                    color={colors.accent.bg}
+                  />
                 </FadeIn>
               );
             })}
@@ -254,20 +246,10 @@ export default function TodayScreen() {
         ) : null}
 
         {topAnomaly ? (
-          <Card
-            style={{
-              backgroundColor: colors.warning.bg,
-              flexDirection: "row",
-              alignItems: "center",
-              gap: spacing[2],
-            }}
-          >
-            <Icon name="flash-outline" color={colors.warning.fg} />
-            <Text variant="body" style={{ color: colors.warning.fg, flex: 1 }}>
-              Gastaste {topAnomaly.percent_increase}% más en {topAnomaly.category_name} que el
-              promedio.
-            </Text>
-          </Card>
+          <Notice
+            tone="info"
+            text={`${topAnomaly.category_name}: ${topAnomaly.percent_increase} % más que tu promedio.`}
+          />
         ) : null}
       </ScrollView>
     </Screen>
@@ -275,7 +257,7 @@ export default function TodayScreen() {
 }
 
 function AccountCard({ account }: { account: Account }) {
-  const { spacing, colors } = useTokens();
+  const { spacing } = useTokens();
   const isLiability = LIABILITY_TYPES.has(account.type);
   const router = useRouter();
   const cycle =
@@ -284,16 +266,16 @@ function AccountCard({ account }: { account: Account }) {
       : null;
 
   const card = (
-    <Card style={{ gap: spacing[1], minWidth: 160 }}>
+    <Card style={{ gap: spacing[1], minWidth: spacing[10] * 4 }}>
       <Text variant="body" numberOfLines={1}>
         {account.name}
       </Text>
-      <Text
-        variant="bodyStrong"
-        style={{ color: isLiability ? colors.expense.fg : colors.text.primary }}
-      >
-        {new Money(account.currentBalanceCents).format()}
-      </Text>
+      <MoneyText cents={account.currentBalanceCents} currency={account.currency} />
+      {isLiability ? (
+        <Text variant="caption" color="secondary">
+          Por pagar
+        </Text>
+      ) : null}
       {cycle ? (
         <Text variant="caption" color="secondary">
           Corte en {cycle.daysUntilStatement} {cycle.daysUntilStatement === 1 ? "día" : "días"}
@@ -314,29 +296,13 @@ function AccountCard({ account }: { account: Account }) {
 }
 
 function UpcomingRow({ item }: { item: UpcomingItemOut }) {
-  const { spacing, colors } = useTokens();
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: spacing[2],
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border.subtle,
-      }}
-    >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[2], flex: 1 }}>
-        <Icon name={UPCOMING_ICON[item.source_type]} size={18} />
-        <Text variant="body" numberOfLines={1} style={{ flex: 1 }}>
-          {item.name}
-        </Text>
-      </View>
-      <Text variant="bodyStrong">{new Money(item.amount_cents).format()}</Text>
-      <Text variant="caption" color="secondary" style={{ marginLeft: spacing[2] }}>
-        {dueDateLabel(item.due_date)}
-      </Text>
-    </View>
+    <ListItem
+      icon={UPCOMING_ICON[item.source_type]}
+      title={item.name}
+      subtitle={dueDateLabel(item.due_date)}
+      trailing={<MoneyText cents={item.amount_cents} />}
+    />
   );
 }
 

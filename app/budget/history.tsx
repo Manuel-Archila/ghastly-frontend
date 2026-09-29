@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Stack, useFocusEffect } from "expo-router";
 
 import { ApiError } from "@/data/api/client";
@@ -12,14 +12,15 @@ import {
 import { errorMessageFor } from "@/data/api/error-messages";
 import { getActiveBudget } from "@/data/repositories/budgets";
 import { Money } from "@/domain/money";
+import { addMonthsClamped, formatMonthLabel, todayIso } from "@/lib/dates";
 import { confirmDestructive } from "@/ui/confirm";
-import { Button, Screen, Text } from "@/ui/primitives";
+import { Button, EmptyState, ListItem, ScrollScreen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
+/** Mes anterior al actual, en el calendario local (no el UTC: en Guatemala el
+ * mes UTC ya cambió desde las 18:00 del último día). */
 function previousMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return d.toISOString().slice(0, 7);
+  return addMonthsClamped(`${todayIso().slice(0, 7)}-01`, -1).slice(0, 7);
 }
 
 /**
@@ -28,7 +29,7 @@ function previousMonth(): string {
  * congela el período y calcula el rollover que arrastra al siguiente.
  */
 export default function BudgetHistoryScreen() {
-  const { spacing, colors } = useTokens();
+  const { spacing } = useTokens();
   const [periods, setPeriods] = useState<HistoryPeriod[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -64,7 +65,7 @@ export default function BudgetHistoryScreen() {
     setNote(null);
     try {
       const result = await closeBudgetPeriod(budget.id, previousMonth());
-      setNote(`Mes ${result.month} cerrado.`);
+      setNote(`${formatMonthLabel(result.month)} cerrado.`);
       await load();
     } catch (e) {
       setNote(errorMessageFor(e, "No se pudo cerrar el mes."));
@@ -81,7 +82,7 @@ export default function BudgetHistoryScreen() {
 
   async function onReopen(month: string) {
     const ok = await confirmDestructive(
-      `Reabrir ${month}`,
+      `Reabrir ${formatMonthLabel(month)}`,
       "El mes se vuelve a calcular en vivo: se pierde el cierre congelado y su arrastre al mes siguiente.",
       "Reabrir",
     );
@@ -92,7 +93,7 @@ export default function BudgetHistoryScreen() {
     setNote(null);
     try {
       await reopenBudgetPeriod(budget.id, month);
-      setNote(`Mes ${month} reabierto.`);
+      setNote(`${formatMonthLabel(month)} reabierto.`);
       await load();
     } catch (e) {
       setNote(errorMessageFor(e, "No se pudo reabrir el mes."));
@@ -105,62 +106,69 @@ export default function BudgetHistoryScreen() {
   const alreadyClosed = periods.some((p) => p.month === previousMonth());
 
   return (
-    <Screen>
+    <ScrollScreen gap={5}>
       <Stack.Screen options={{ title: "Historial" }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[5], paddingVertical: spacing[4] }}>
-        {!alreadyClosed ? (
-          <Button
-            label={busy ? "Cerrando…" : `Cerrar ${previousMonth()}`}
-            onPress={onClosePrevious}
-            disabled={busy}
-          />
-        ) : null}
+      {!alreadyClosed ? (
+        <Button
+          label={busy ? "Cerrando…" : `Cerrar ${formatMonthLabel(previousMonth())}`}
+          onPress={onClosePrevious}
+          disabled={busy}
+        />
+      ) : null}
 
-        {note ? (
-          <Text variant="caption" color="secondary">
-            {note}
-          </Text>
-        ) : null}
+      {note ? (
+        <Text variant="caption" color="secondary" accessibilityLiveRegion="polite">
+          {note}
+        </Text>
+      ) : null}
 
-        {loaded && periods.length === 0 ? (
-          <Text variant="body" color="secondary">
-            Todavía no hay meses cerrados. Al cerrar un mes se congela su gasto y lo que sobró pasa al
-            siguiente si tenés rollover activo.
-          </Text>
-        ) : null}
+      {loaded && periods.length === 0 ? (
+        <EmptyState
+          icon="calendar-outline"
+          message="Todavía no hay meses cerrados. Al cerrar un mes se congela su gasto y lo que sobró pasa al siguiente si tenés rollover activo."
+        />
+      ) : null}
 
-        {periods.map((period) => {
-          const spent = period.items.reduce((s, i) => s + i.spent_cents, 0);
-          const budgeted = period.items.reduce((s, i) => s + i.budgeted_cents, 0);
-          return (
-            <View key={period.month} style={{ gap: spacing[2] }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <Text variant="title2">{period.month}</Text>
-                <Text variant="bodyStrong">
-                  {new Money(spent).format()} / {new Money(budgeted).format()}
-                </Text>
-              </View>
-              {period.items.map((item) => (
-                <View
-                  key={item.category_id}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    borderBottomWidth: 1,
-                    borderBottomColor: colors.border.subtle,
-                    paddingVertical: spacing[1],
-                  }}
-                >
-                  <Text variant="body">{item.category_name || "Categoría"}</Text>
-                  <Text variant="caption" color="tertiary">
+      {periods.map((period) => {
+        const spent = period.items.reduce((s, i) => s + i.spent_cents, 0);
+        const budgeted = period.items.reduce((s, i) => s + i.budgeted_cents, 0);
+        return (
+          <View key={period.month}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                gap: spacing[2],
+                paddingBottom: spacing[1],
+              }}
+            >
+              <Text variant="title2" accessibilityRole="header" style={{ flexShrink: 1 }}>
+                {formatMonthLabel(period.month)}
+              </Text>
+              <Text variant="bodyStrong">
+                {new Money(spent).format()} / {new Money(budgeted).format()}
+              </Text>
+            </View>
+            {period.items.map((item, index) => (
+              <ListItem
+                key={item.category_id}
+                title={item.category_name || "Categoría"}
+                subtitle={
+                  item.rollover_in_cents !== 0
+                    ? `${new Money(item.rollover_in_cents).format()} de arrastre`
+                    : undefined
+                }
+                trailing={
+                  <Text variant="caption" color="secondary">
                     {new Money(item.spent_cents).format()} / {new Money(item.budgeted_cents).format()}
-                    {item.rollover_in_cents !== 0
-                      ? `  ·  ${new Money(item.rollover_in_cents).format()} de arrastre`
-                      : ""}
                   </Text>
-                </View>
-              ))}
-              {period.month === latestClosed ? (
+                }
+                last={index === period.items.length - 1 && period.month !== latestClosed}
+              />
+            ))}
+            {period.month === latestClosed ? (
+              <View style={{ paddingTop: spacing[2] }}>
                 <Button
                   label="Reabrir mes"
                   variant="secondary"
@@ -168,11 +176,11 @@ export default function BudgetHistoryScreen() {
                   disabled={busy}
                   onPress={() => void onReopen(period.month)}
                 />
-              ) : null}
-            </View>
-          );
-        })}
-      </ScrollView>
-    </Screen>
+              </View>
+            ) : null}
+          </View>
+        );
+      })}
+    </ScrollScreen>
   );
 }

@@ -1,41 +1,43 @@
-import { type PropsWithChildren, useEffect, useState } from "react";
-import { AccessibilityInfo, Animated } from "react-native";
+import { type PropsWithChildren, useMemo } from "react";
+import Animated, { Easing, FadeIn as FadeOnly, Keyframe } from "react-native-reanimated";
+
+import { bezier, duration, enterOffset, staggerMaxItems, staggerStep } from "@/ui/tokens/motion";
+import { useReducedMotion } from "@/ui/useReducedMotion";
 
 export interface FadeInProps {
-  /** Retraso opcional en ms — para escalonar filas de una lista sin animar
-   * todo el bloque de una sola vez. */
+  /** Retraso opcional en ms para escalonar filas. Se recorta al tope del
+   * escalonado (`staggerMaxItems` × `staggerStep`): en una lista larga la
+   * última fila no espera segundos. */
   delay?: number;
 }
 
-/** Fade + slide sutil al montar (8px), para que listas y tarjetas no
- * aparezcan de golpe. Respeta "Reducir movimiento" (mismo criterio que
- * `Skeleton.tsx`): si está activo, se muestra directo, sin animar — sin
- * esperar esa respuesta async para el primer render (evita un parpadeo). */
+const EASE_OUT = Easing.bezier(...bezier.out);
+const MAX_DELAY = staggerStep * staggerMaxItems;
+
+/**
+ * Fade + subida corta al montar, para que listas y tarjetas no aparezcan de
+ * golpe. Es una animación de entrada de Reanimated: arranca desde el estado
+ * inicial en el primer frame (sin el parpadeo de la versión anterior) y corre
+ * en el hilo de UI.
+ *
+ * "Reducir movimiento": solo fundido, sin desplazamiento.
+ *
+ * NO usar dentro de FlashList/FlatList/SectionList: las filas se reciclan y
+ * la animación se dispararía cada vez que una fila vuelve a la vista.
+ */
 export function FadeIn({ children, delay = 0 }: PropsWithChildren<FadeInProps>) {
-  const [opacity] = useState(() => new Animated.Value(0));
-  const [translateY] = useState(() => new Animated.Value(8));
+  const reduceMotion = useReducedMotion();
+  const wait = Math.min(delay, MAX_DELAY);
 
-  useEffect(() => {
-    let cancelled = false;
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (cancelled) return;
-      if (enabled) {
-        opacity.setValue(1);
-        translateY.setValue(0);
-        return;
-      }
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 1, duration: 220, delay, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: 0, duration: 220, delay, useNativeDriver: true }),
-      ]).start();
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al montar
-  }, []);
+  const entering = useMemo(() => {
+    if (reduceMotion) return FadeOnly.duration(duration.fast).delay(wait);
+    return new Keyframe({
+      0: { opacity: 0, transform: [{ translateY: enterOffset }] },
+      100: { opacity: 1, transform: [{ translateY: 0 }], easing: EASE_OUT },
+    })
+      .duration(duration.base)
+      .delay(wait);
+  }, [reduceMotion, wait]);
 
-  return (
-    <Animated.View style={{ opacity, transform: [{ translateY }] }}>{children}</Animated.View>
-  );
+  return <Animated.View entering={entering}>{children}</Animated.View>;
 }

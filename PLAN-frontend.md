@@ -157,7 +157,7 @@ Respetar Dynamic Type / escala de fuente del sistema hasta 200%: **ninguna altur
 
 - Escala de 4 pt: `1=4, 2=8, 3=12, 4=16, 5=20, 6=24, 8=32, 10=40`. Margen lateral de pantalla: `16`.
 - Radios: `sm=8` (chips, inputs), `md=12` (tarjetas), `lg=20` (sheets), `full` (botones circulares, avatares).
-- Elevación: solo **tres** niveles — plano, tarjeta, sheet. Nada de sombras decorativas.
+- Elevación: solo **tres** niveles — plano (`bg.base`), tarjeta (`bg.surface` + contorno `border.subtle`) y sheet (`bg.elevated`). Sin sombras: la profundidad la da el tono y el contorno (ver `DESIGN.md`).
 - **Área táctil mínima 48×48**, aunque el icono se vea de 20.
 
 ### 4.5 Movimiento

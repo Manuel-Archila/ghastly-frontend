@@ -1,4 +1,4 @@
-import { Pressable } from "react-native";
+import { Pressable, View } from "react-native";
 import type { Ionicons } from "@expo/vector-icons";
 
 import { Icon } from "@/ui/primitives/Icon";
@@ -14,7 +14,7 @@ export interface ListRowProps {
 
 /** Fila de navegación (Más, Ajustes). Crece con la fuente del sistema. */
 export function ListRow({ icon, label, summary, onPress }: ListRowProps) {
-  const { spacing, colors, minTouchTarget } = useTokens();
+  const { spacing, colors, minTouchTarget, opacity, stroke, iconSize } = useTokens();
   return (
     <Pressable
       accessibilityRole="button"
@@ -26,18 +26,23 @@ export function ListRow({ icon, label, summary, onPress }: ListRowProps) {
         gap: spacing[3],
         minHeight: minTouchTarget,
         paddingVertical: spacing[3],
-        borderBottomWidth: 1,
+        borderBottomWidth: stroke.hairline,
         borderBottomColor: colors.border.subtle,
-        opacity: pressed ? 0.6 : 1,
+        opacity: pressed ? opacity.pressedSubtle : 1,
       })}
     >
       <Icon name={icon} />
       <Text variant="body" style={{ flex: 1 }}>
         {label}
       </Text>
-      <Text variant="caption" color="tertiary">
-        {summary ? `${summary} ›` : "›"}
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[1] }}>
+        {summary ? (
+          <Text variant="caption" color="secondary">
+            {summary}
+          </Text>
+        ) : null}
+        <Icon name="chevron-forward" size={iconSize.sm} color={colors.text.tertiary} />
+      </View>
     </Pressable>
   );
 }

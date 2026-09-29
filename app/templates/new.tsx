@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { ScrollView } from "react-native";
 import { Stack, useRouter } from "expo-router";
 
 import { errorMessageFor } from "@/data/api/error-messages";
@@ -8,12 +7,10 @@ import { runSync } from "@/data/sync";
 import { TemplateForm, type TemplateSubmit } from "@/features/templates/TemplateForm";
 import { useInvalidateTemplates } from "@/features/templates/useTemplates";
 import { uuidv7 } from "@/lib/uuid";
-import { Screen } from "@/ui/primitives";
-import { useTokens } from "@/ui/tokens";
+import { FormScreen } from "@/ui/primitives";
 
 export default function NewTemplateScreen() {
   const router = useRouter();
-  const { spacing } = useTokens();
   const invalidate = useInvalidateTemplates();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,9 +39,9 @@ export default function NewTemplateScreen() {
   }
 
   return (
-    <Screen>
+    <>
       <Stack.Screen options={{ title: "Nueva plantilla" }} />
-      <ScrollView contentContainerStyle={{ paddingVertical: spacing[4], paddingBottom: spacing[8] }}>
+      <FormScreen>
         <TemplateForm
           initial={{
             name: "",
@@ -59,7 +56,7 @@ export default function NewTemplateScreen() {
           error={error}
           onSubmit={(v) => void onSubmit(v)}
         />
-      </ScrollView>
-    </Screen>
+      </FormScreen>
+    </>
   );
 }
