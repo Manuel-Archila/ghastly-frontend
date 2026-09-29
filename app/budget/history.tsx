@@ -12,15 +12,15 @@ import {
 import { errorMessageFor } from "@/data/api/error-messages";
 import { getActiveBudget } from "@/data/repositories/budgets";
 import { Money } from "@/domain/money";
-import { formatMonthLabel } from "@/lib/dates";
+import { addMonthsClamped, formatMonthLabel, todayIso } from "@/lib/dates";
 import { confirmDestructive } from "@/ui/confirm";
 import { Button, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
+/** Mes anterior al actual, en el calendario local (no el UTC: en Guatemala el
+ * mes UTC ya cambió desde las 18:00 del último día). */
 function previousMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return d.toISOString().slice(0, 7);
+  return addMonthsClamped(`${todayIso().slice(0, 7)}-01`, -1).slice(0, 7);
 }
 
 /**
