@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
 
-import { ApiError } from "@/data/api/client";
+import { errorMessageFor } from "@/data/api/error-messages";
 import { useSessionStore } from "@/features/auth/session-store";
 import { Button, Input, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
@@ -26,7 +26,7 @@ export default function RegisterScreen() {
       await register(email.trim(), password, name.trim());
       await login(email.trim(), password);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo crear la cuenta.");
+      setError(errorMessageFor(e, "No se pudo crear la cuenta."));
       setBusy(false);
     }
   }

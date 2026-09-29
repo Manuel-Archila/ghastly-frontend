@@ -3,7 +3,7 @@ import { Switch, View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 
 import { createRecurringRule } from "@/data/api/commitments";
-import { ApiError } from "@/data/api/client";
+import { errorMessageFor } from "@/data/api/error-messages";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { listCategories, type Category } from "@/data/repositories/categories";
 import { parseCentsFromInput } from "@/domain/money";
@@ -80,7 +80,7 @@ export default function NewSubscriptionScreen() {
       });
       router.back();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo crear.");
+      setError(errorMessageFor(e, "No se pudo crear."));
       setBusy(false);
     }
   }

@@ -4,7 +4,8 @@ import * as Haptics from "expo-haptics";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { recordDebtPayment } from "@/data/api/commitments";
-import { ApiError, api } from "@/data/api/client";
+import { errorMessageFor } from "@/data/api/error-messages";
+import { api } from "@/data/api/client";
 import { getDebt, type Debt } from "@/data/repositories/commitments";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { Money, parseCentsFromInput } from "@/domain/money";
@@ -86,7 +87,7 @@ export default function DebtDetailScreen() {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError(e instanceof ApiError ? e.message : "No se pudo registrar.");
+      setError(errorMessageFor(e, "No se pudo registrar."));
     } finally {
       setBusy(false);
     }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Stack, useRouter } from "expo-router";
 
 import { createGoal } from "@/data/api/commitments";
-import { ApiError } from "@/data/api/client";
+import { errorMessageFor } from "@/data/api/error-messages";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { parseCentsFromInput } from "@/domain/money";
 import { Chip, ChipGroup, FormScreen, Input } from "@/ui/primitives";
@@ -35,7 +35,7 @@ export default function NewGoalScreen() {
       });
       router.back();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo crear.");
+      setError(errorMessageFor(e, "No se pudo crear."));
       setBusy(false);
     }
   }

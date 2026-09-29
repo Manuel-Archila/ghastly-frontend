@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Stack, useRouter } from "expo-router";
 
 import { createDebt } from "@/data/api/commitments";
-import { ApiError } from "@/data/api/client";
+import { errorMessageFor } from "@/data/api/error-messages";
 import { parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
 import { FormScreen, Input } from "@/ui/primitives";
@@ -34,7 +34,7 @@ export default function NewDebtScreen() {
       });
       router.back();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo crear.");
+      setError(errorMessageFor(e, "No se pudo crear."));
       setBusy(false);
     }
   }

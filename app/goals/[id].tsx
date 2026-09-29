@@ -4,7 +4,7 @@ import * as Haptics from "expo-haptics";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { contributeToGoal } from "@/data/api/commitments";
-import { ApiError } from "@/data/api/client";
+import { errorMessageFor } from "@/data/api/error-messages";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { listGoals, type Goal } from "@/data/repositories/commitments";
 import { Money, parseCentsFromInput } from "@/domain/money";
@@ -69,7 +69,7 @@ export default function GoalDetailScreen() {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (e) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError(e instanceof ApiError ? e.message : "No se pudo aportar.");
+      setError(errorMessageFor(e, "No se pudo aportar."));
     } finally {
       setBusy(false);
     }

@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { Stack, useRouter } from "expo-router";
 
 import { createInstallmentPlan } from "@/data/api/commitments";
-import { ApiError } from "@/data/api/client";
+import { errorMessageFor } from "@/data/api/error-messages";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { generateInstallmentSchedule } from "@/domain/installments";
 import { Money, parseCentsFromInput } from "@/domain/money";
@@ -64,7 +64,7 @@ export default function NewInstallmentPlanScreen() {
       });
       router.back();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo crear.");
+      setError(errorMessageFor(e, "No se pudo crear."));
       setBusy(false);
     }
   }

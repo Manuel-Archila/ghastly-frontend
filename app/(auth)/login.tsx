@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View } from "react-native";
 import { Link } from "expo-router";
 
-import { ApiError } from "@/data/api/client";
+import { errorMessageFor } from "@/data/api/error-messages";
 import { useSessionStore } from "@/features/auth/session-store";
 import { Button, Input, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
@@ -22,7 +22,7 @@ export default function LoginScreen() {
     try {
       await login(email.trim(), password);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo iniciar sesión.");
+      setError(errorMessageFor(e, "No se pudo iniciar sesión."));
     } finally {
       setBusy(false);
     }

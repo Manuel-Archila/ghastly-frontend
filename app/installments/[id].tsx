@@ -4,7 +4,6 @@ import * as Haptics from "expo-haptics";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { deleteInstallmentPlan, payInstallment, updateInstallmentPlan } from "@/data/api/commitments";
-import { ApiError } from "@/data/api/client";
 import { errorMessageFor } from "@/data/api/error-messages";
 import { listCategories, type Category } from "@/data/repositories/categories";
 import {
@@ -85,7 +84,7 @@ export default function InstallmentPlanScreen() {
       await load();
     } catch (e) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setError(e instanceof ApiError ? e.message : "No se pudo pagar.");
+      setError(errorMessageFor(e, "No se pudo pagar."));
     } finally {
       setBusy(false);
     }

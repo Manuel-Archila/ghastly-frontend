@@ -3,6 +3,7 @@ import { ScrollView, Switch, View } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import { deleteAccount } from "@/data/api/accounts";
+import { errorMessageFor } from "@/data/api/error-messages";
 import { ApiError } from "@/data/api/client";
 import {
   listAccounts,
@@ -71,7 +72,7 @@ export default function AccountsScreen() {
         );
         if (archiveAnyway) void performDelete(id, true);
       } else {
-        showToast({ message: e instanceof ApiError ? e.message : "No se pudo borrar. Intentá de nuevo." });
+        showToast({ message: errorMessageFor(e, "No se pudo borrar. Intentá de nuevo.") });
       }
     } finally {
       setBusyId(null);
