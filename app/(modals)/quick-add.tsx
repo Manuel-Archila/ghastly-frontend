@@ -1,20 +1,25 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 import * as Haptics from "expo-haptics";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { listAccounts, type Account } from "@/data/repositories/accounts";
-import { listMostUsedExpenseCategories, type Category } from "@/data/repositories/categories";
+import {
+  listCategories,
+  listMostUsedExpenseCategories,
+  type Category,
+} from "@/data/repositories/categories";
 import {
   createTransactionLocally,
   findPossibleDuplicate,
 } from "@/data/repositories/transactions";
+import { isMissingRequiredCategory } from "@/domain/categoryRule";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import type { TemplateOut } from "@/data/api/templates";
 import { triggerSync } from "@/features/sync/sync-manager";
 import { loadCachedTemplates, refreshTemplateCache } from "@/lib/templateCache";
 import { todayIso } from "@/lib/dates";
-import { Button, Chip, Input, KeypadNumeric, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, Input, KeypadNumeric, Notice, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 function today(): string {
@@ -37,9 +42,11 @@ export default function QuickAddScreen() {
   const [cents, setCents] = useState(0);
   const [description, setDescription] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
+  const [incomeCategories, setIncomeCategories] = useState<Category[]>([]);
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [accountId, setAccountId] = useState<string | null>(null);
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [pickedCategoryId, setPickedCategoryId] = useState<string | null>(null);
   const [chargedGtq, setChargedGtq] = useState("");
   const [warning, setWarning] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,18 +66,40 @@ export default function QuickAddScreen() {
   const chargedGtqCents = parseCentsFromInput(chargedGtq);
   const fxRate = chargedGtqCents !== null && cents > 0 ? chargedGtqCents / cents : null;
 
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.all([listAccounts(), listMostUsedExpenseCategories(6)]).then(([accs, cats]) => {
-      if (cancelled) return;
-      setAccounts(accs);
-      setCategories(cats);
-      setAccountId((prev) => prev ?? accs[0]?.id ?? null);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // Al volver a la pantalla (por ejemplo, de crear la primera categoría) se
+  // recargan cuentas y categorías.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      void Promise.all([
+        listAccounts(),
+        listMostUsedExpenseCategories(6),
+        listCategories("income"),
+      ]).then(([accs, expenseCats, incomeCats]) => {
+        if (cancelled) return;
+        setAccounts(accs);
+        setExpenseCategories(expenseCats);
+        setIncomeCategories(incomeCats.slice(0, 6));
+        setCategoriesLoaded(true);
+        setAccountId((prev) => prev ?? accs[0]?.id ?? null);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  // Un gasto no puede existir sin categoría (`domain/categoryRule.ts`). Para no
+  // sumar un tap, la de gasto más usada queda preseleccionada; un ingreso puede
+  // no llevar ninguna. Es un valor derivado: si la elegida ya no aplica al tipo
+  // (se cambió de Gasto a Ingreso), se vuelve al valor por defecto.
+  const categories = kind === "expense" ? expenseCategories : incomeCategories;
+  const categoryId =
+    pickedCategoryId && categories.some((c) => c.id === pickedCategoryId)
+      ? pickedCategoryId
+      : kind === "expense"
+        ? (categories[0]?.id ?? null)
+        : null;
 
   // Chips de plantillas: primero la caché (instantáneo, funciona sin red) y
   // en segundo plano se refresca. Solo las de una cuenta local en GTQ: en
@@ -86,6 +115,8 @@ export default function QuickAddScreen() {
 
   const usableTemplates = templates
     .filter((t) => accounts.some((a) => a.id === t.account_id && a.currency === "GTQ"))
+    // Una plantilla de gasto sin categoría no se puede guardar de un tap.
+    .filter((t) => !isMissingRequiredCategory(t.kind, t.category_id))
     .slice(0, 6);
 
   /** Un tap: guarda el gasto ya armado y cierra. */
@@ -114,7 +145,12 @@ export default function QuickAddScreen() {
     router.back();
   }
 
-  const canSave = cents > 0 && accountId !== null && !busy && (!needsFxRate || fxRate !== null);
+  const canSave =
+    cents > 0 &&
+    accountId !== null &&
+    !busy &&
+    !isMissingRequiredCategory(kind, categoryId) &&
+    (!needsFxRate || fxRate !== null);
 
   async function save(): Promise<boolean> {
     if (cents <= 0 || accountId === null) return false;
@@ -210,9 +246,26 @@ export default function QuickAddScreen() {
                 key={c.id}
                 label={c.name}
                 selected={categoryId === c.id}
-                onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
+                // Un gasto siempre lleva categoría: tocar la elegida no la quita.
+                onPress={() =>
+                  setPickedCategoryId(kind === "expense" || categoryId !== c.id ? c.id : null)
+                }
               />
             ))}
+          </View>
+        ) : categoriesLoaded && kind === "expense" ? (
+          // La app arranca sin categorías: hay que crear la primera antes de
+          // poder guardar un gasto.
+          <View style={{ gap: spacing[2] }}>
+            <Notice
+              tone="info"
+              text="Para registrar un gasto primero necesitás una categoría. Creá la primera."
+            />
+            <Button
+              label="Crear una categoría"
+              variant="secondary"
+              onPress={() => router.push("/categories/new")}
+            />
           </View>
         ) : null}
 
