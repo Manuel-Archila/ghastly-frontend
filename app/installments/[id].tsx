@@ -5,7 +5,6 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 
 import { deleteInstallmentPlan, payInstallment, updateInstallmentPlan } from "@/data/api/commitments";
 import { errorMessageFor } from "@/data/api/error-messages";
-import { listCategories, type Category } from "@/data/repositories/categories";
 import {
   getInstallmentPlan,
   listInstallmentsForPlan,
@@ -14,11 +13,10 @@ import {
 } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
 import { formatDateLabel, todayIso } from "@/lib/dates";
+import { CategoryPicker } from "@/features/categories/CategoryPicker";
 import { deferDelete } from "@/features/undo/deferred-delete";
 import {
   Button,
-  Chip,
-  ChipGroup,
   FadeIn,
   HeroFigure,
   Icon,
@@ -41,7 +39,6 @@ export default function InstallmentPlanScreen() {
 
   const [plan, setPlan] = useState<InstallmentPlan | undefined>();
   const [rows, setRows] = useState<Installment[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [description, setDescription] = useState("");
   const [merchant, setMerchant] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -49,14 +46,9 @@ export default function InstallmentPlanScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [p, list, cats] = await Promise.all([
-      getInstallmentPlan(id),
-      listInstallmentsForPlan(id),
-      listCategories("expense"),
-    ]);
+    const [p, list] = await Promise.all([getInstallmentPlan(id), listInstallmentsForPlan(id)]);
     setPlan(p);
     setRows(list);
-    setCategories(cats);
     if (p) {
       setDescription(p.description);
       setMerchant(p.merchant ?? "");
@@ -91,7 +83,7 @@ export default function InstallmentPlanScreen() {
   }
 
   async function onSave() {
-    if (!plan || !description.trim()) return;
+    if (!plan || !description.trim() || !categoryId) return;
     setBusy(true);
     setError(null);
     try {
@@ -174,24 +166,13 @@ export default function InstallmentPlanScreen() {
         <Input label="Descripción" value={description} onChangeText={setDescription} />
         <Input label="Comercio" value={merchant} onChangeText={setMerchant} placeholder="Opcional" />
 
-        {categories.length > 0 ? (
-          <ChipGroup label="Categoría">
-            {categories.map((c) => (
-              <Chip
-                key={c.id}
-                label={c.name}
-                selected={categoryId === c.id}
-                onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
-              />
-            ))}
-          </ChipGroup>
-        ) : null}
+        <CategoryPicker kind="expense" value={categoryId} onChange={setCategoryId} />
 
         <Button
           label={busy ? "Guardando…" : "Guardar"}
           variant="secondary"
           onPress={onSave}
-          disabled={busy || !description.trim()}
+          disabled={busy || !description.trim() || !categoryId}
         />
         <Button label="Cancelar plan" variant="danger" onPress={onCancelPlan} disabled={busy} />
       </View>

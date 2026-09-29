@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 
 import { listAccounts, type Account } from "@/data/repositories/accounts";
-import { listCategories, type Category } from "@/data/repositories/categories";
+import { isMissingRequiredCategory } from "@/domain/categoryRule";
 import { parseCentsFromInput } from "@/domain/money";
+import { CategoryPicker } from "@/features/categories/CategoryPicker";
 import { Button, Chip, Input, Notice, SegmentedControl, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
@@ -41,21 +42,20 @@ export function TemplateForm({
   const { spacing } = useTokens();
   const [values, setValues] = useState(initial);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     void listAccounts().then(setAccounts);
   }, []);
-  useEffect(() => {
-    void listCategories(values.kind).then(setCategories);
-  }, [values.kind]);
 
   function submit() {
     const cents = parseCentsFromInput(values.amount);
     if (values.name.trim() === "") return setLocalError("Poné un nombre.");
     if (!values.accountId) return setLocalError("Elegí una cuenta.");
     if (cents === null || cents <= 0) return setLocalError("Poné un monto mayor a cero.");
+    if (isMissingRequiredCategory(values.kind, values.categoryId)) {
+      return setLocalError("Elegí una categoría para el gasto.");
+    }
     setLocalError(null);
     onSubmit({
       name: values.name.trim(),
@@ -111,26 +111,11 @@ export function TemplateForm({
         </View>
       </View>
 
-      <View style={{ gap: spacing[2] }}>
-        <Text variant="caption" color="secondary">
-          CATEGORÍA
-        </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-          <Chip
-            label="Ninguna"
-            selected={values.categoryId === null}
-            onPress={() => setValues((p) => ({ ...p, categoryId: null }))}
-          />
-          {categories.map((c) => (
-            <Chip
-              key={c.id}
-              label={c.name}
-              selected={values.categoryId === c.id}
-              onPress={() => setValues((p) => ({ ...p, categoryId: c.id }))}
-            />
-          ))}
-        </View>
-      </View>
+      <CategoryPicker
+        kind={values.kind}
+        value={values.categoryId}
+        onChange={(categoryId) => setValues((p) => ({ ...p, categoryId }))}
+      />
 
       <Input
         label="Descripción (opcional)"

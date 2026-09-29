@@ -7,6 +7,7 @@ const MESSAGES: Record<string, string> = {
   BUDGET_ITEM_CATEGORY_TAKEN: "Esa categoría ya está en el presupuesto.",
   BUDGET_REQUIRES_EXPENSE_CATEGORY: "El presupuesto solo acepta categorías de gasto.",
   CATEGORY_NOT_FOUND: "No encontramos esa categoría.",
+  CATEGORY_REQUIRED: "Elegí una categoría para el gasto.",
   LATER_PERIOD_CLOSED: "Hay un mes posterior cerrado. Reabrí primero el más reciente.",
   PERIOD_NOT_FOUND: "Ese mes no está cerrado.",
   CATEGORY_TOO_DEEP: "Las categorías admiten solo dos niveles.",

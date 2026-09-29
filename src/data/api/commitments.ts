@@ -5,6 +5,7 @@
  * mensuales, no la ruta de 10 segundos.
  */
 import { api } from "@/data/api/client";
+import { assertCategoryPresent } from "@/domain/categoryRule";
 import { pullChanges } from "@/data/sync";
 import { uuidv7 } from "@/lib/uuid";
 
@@ -43,6 +44,7 @@ export interface RecurringRuleInput {
 }
 
 export function createRecurringRule(input: RecurringRuleInput) {
+  assertCategoryPresent(input.kind, input.categoryId);
   return createAndPull("/recurring-rules", {
     id: uuidv7(),
     account_id: input.accountId,
@@ -81,7 +83,9 @@ export function skipNextRecurringRule(ruleId: string) {
 
 export interface RecurringRulePatch {
   name?: string;
-  categoryId?: string | null;
+  /** No acepta `null`: una suscripción es un gasto y un gasto no puede quedar
+   * sin categoría (`domain/categoryRule.ts`). */
+  categoryId?: string;
   amountCents?: number;
   endDate?: string | null;
   autoCreate?: boolean;
@@ -109,7 +113,8 @@ export function deleteRecurringRule(ruleId: string) {
 
 export interface InstallmentPlanInput {
   accountId: string;
-  categoryId: string | null;
+  /** Obligatoria: un plan de cuotas siempre es gasto. */
+  categoryId: string;
   description: string;
   totalAmountCents: number;
   installmentsCount: number;
@@ -117,6 +122,7 @@ export interface InstallmentPlanInput {
 }
 
 export function createInstallmentPlan(input: InstallmentPlanInput) {
+  assertCategoryPresent("expense", input.categoryId);
   return createAndPull("/installment-plans", {
     id: uuidv7(),
     account_id: input.accountId,
@@ -140,7 +146,8 @@ export function payInstallment(installmentId: string, dateIso: string) {
 export interface InstallmentPlanPatch {
   description?: string;
   merchant?: string | null;
-  categoryId?: string | null;
+  /** No acepta `null`: ver `InstallmentPlanInput.categoryId`. */
+  categoryId?: string;
 }
 
 export function updateInstallmentPlan(planId: string, patch: InstallmentPlanPatch) {
