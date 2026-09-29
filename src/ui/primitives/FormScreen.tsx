@@ -1,10 +1,8 @@
 import type { PropsWithChildren } from "react";
-import { ScrollView } from "react-native";
 
 import { Button } from "@/ui/primitives/Button";
-import { Screen } from "@/ui/primitives/Screen";
+import { ScrollScreen } from "@/ui/primitives/ScrollScreen";
 import { Notice } from "@/ui/primitives/Notice";
-import { useTokens } from "@/ui/tokens";
 
 export interface FormScreenProps {
   /** Error del envío, ya traducido (`data/api/error-messages.ts`). */
@@ -32,27 +30,17 @@ export function FormScreen({
   busy = false,
   submitDisabled = false,
 }: PropsWithChildren<FormScreenProps>) {
-  const { spacing } = useTokens();
   return (
-    <Screen>
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          gap: spacing[4],
-          paddingTop: spacing[4],
-          paddingBottom: spacing[8],
-        }}
-      >
-        {children}
-        {error ? <Notice tone="danger" text={error} /> : null}
-        {submitLabel && onSubmit ? (
-          <Button
-            label={busy ? busyLabel : submitLabel}
-            onPress={onSubmit}
-            disabled={busy || submitDisabled}
-          />
-        ) : null}
-      </ScrollView>
-    </Screen>
+    <ScrollScreen>
+      {children}
+      {error ? <Notice tone="danger" text={error} /> : null}
+      {submitLabel && onSubmit ? (
+        <Button
+          label={busy ? busyLabel : submitLabel}
+          onPress={onSubmit}
+          disabled={busy || submitDisabled}
+        />
+      ) : null}
+    </ScrollScreen>
   );
 }

@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { mergeCategory, setCategoryParent } from "@/data/api/categories";
@@ -16,7 +16,16 @@ import { pullChanges, runSync } from "@/data/sync";
 import { CategoryForm, type CategoryFormValues } from "@/features/categories/CategoryForm";
 import { triggerSync } from "@/features/sync/sync-manager";
 import { confirmDestructive } from "@/ui/confirm";
-import { Button, Chip, Notice, Screen, Text } from "@/ui/primitives";
+import {
+  Button,
+  Chip,
+  ChipGroup,
+  Notice,
+  Screen,
+  ScrollScreen,
+  SectionHeader,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function EditCategoryScreen() {
@@ -149,84 +158,78 @@ export default function EditCategoryScreen() {
   }
 
   return (
-    <Screen>
+    <ScrollScreen gap={6}>
       <Stack.Screen options={{ title: category.name }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[6], paddingVertical: spacing[4], paddingBottom: spacing[8] }}>
-        <CategoryForm
-          categories={live}
-          editingId={category.id}
-          lockKind
-          initial={{
-            name: category.name,
-            kind: category.kind as "expense" | "income",
-            parentId: category.parentId,
-            icon: category.icon,
-            color: category.color,
-            isTaxDeductible: category.isTaxDeductible,
-          }}
-          submitLabel="Guardar"
-          busy={busy}
-          error={error}
-          onSubmit={(v) => void onSubmit(v)}
-        />
+      <CategoryForm
+        categories={live}
+        editingId={category.id}
+        lockKind
+        initial={{
+          name: category.name,
+          kind: category.kind as "expense" | "income",
+          parentId: category.parentId,
+          icon: category.icon,
+          color: category.color,
+          isTaxDeductible: category.isTaxDeductible,
+        }}
+        submitLabel="Guardar"
+        busy={busy}
+        error={error}
+        onSubmit={(v) => void onSubmit(v)}
+      />
 
-        {siblings.length > 1 ? (
-          <View style={{ gap: spacing[2] }}>
-            <Text variant="caption" color="secondary">
-              ORDEN
-            </Text>
-            <View style={{ flexDirection: "row", gap: spacing[2] }}>
-              <Button
-                label="Subir"
-                variant="secondary"
-                fullWidth={false}
-                disabled={position <= 0}
-                onPress={() => void onMove(-1)}
-              />
-              <Button
-                label="Bajar"
-                variant="secondary"
-                fullWidth={false}
-                disabled={position >= siblings.length - 1}
-                onPress={() => void onMove(1)}
-              />
-            </View>
-          </View>
-        ) : null}
-
-        {mergeTargets.length > 0 ? (
-          <View style={{ gap: spacing[2] }}>
-            <Text variant="caption" color="secondary">
-              FUSIONAR EN OTRA
-            </Text>
-            <Text variant="caption" color="tertiary">
-              Mueve todos los movimientos y suma el monto de presupuesto a la categoría destino.
-              Necesita conexión.
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-              {mergeTargets.map((c) => (
-                <Chip
-                  key={c.id}
-                  label={c.name}
-                  selected={mergeInto === c.id}
-                  onPress={() => setMergeInto(mergeInto === c.id ? null : c.id)}
-                />
-              ))}
-            </View>
+      {siblings.length > 1 ? (
+        <View style={{ gap: spacing[2] }}>
+          <SectionHeader label="Orden" />
+          <View style={{ flexDirection: "row", gap: spacing[2] }}>
             <Button
-              label="Fusionar"
+              label="Subir"
               variant="secondary"
-              disabled={!mergeInto || busy}
-              onPress={() => void onMerge()}
+              fullWidth={false}
+              disabled={position <= 0}
+              onPress={() => void onMove(-1)}
+            />
+            <Button
+              label="Bajar"
+              variant="secondary"
+              fullWidth={false}
+              disabled={position >= siblings.length - 1}
+              onPress={() => void onMove(1)}
             />
           </View>
-        ) : null}
-
-        <View style={{ gap: spacing[2] }}>
-          <Notice text="Al archivarla se quita de los presupuestos; los gastos ya registrados no cambian." />
-          <Button label="Archivar categoría" variant="danger" onPress={() => void onArchive()} />
         </View>
-      </ScrollView>
-    </Screen>
+      ) : null}
+
+      {mergeTargets.length > 0 ? (
+        <View style={{ gap: spacing[2] }}>
+          <SectionHeader label="Fusionar en otra" />
+          <Text variant="caption" color="secondary">
+            Mueve todos los movimientos y suma el monto de presupuesto a la categoría destino.
+            Necesita conexión.
+          </Text>
+          <ChipGroup>
+            {mergeTargets.map((c) => (
+              <Chip
+                key={c.id}
+                label={c.name}
+                selected={mergeInto === c.id}
+                onPress={() => setMergeInto(mergeInto === c.id ? null : c.id)}
+              />
+            ))}
+          </ChipGroup>
+          <Button
+            label="Fusionar"
+            variant="secondary"
+            disabled={!mergeInto || busy}
+            onPress={() => void onMerge()}
+          />
+        </View>
+      ) : null}
+
+      <View style={{ gap: spacing[2] }}>
+        <Notice text="Al archivarla se quita de los presupuestos; los gastos ya registrados no cambian." />
+        <Button label="Archivar categoría" variant="danger" onPress={() => void onArchive()} />
+      </View>
+    </ScrollScreen>
   );
 }

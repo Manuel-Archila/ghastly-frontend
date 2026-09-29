@@ -17,6 +17,8 @@ export interface ListItemProps {
   onPress?: () => void;
   /** Muestra `›` al final. Por defecto sí cuando hay `onPress`. */
   chevron?: boolean;
+  /** Título en negrita: para la fila "padre" de una jerarquía. */
+  strong?: boolean;
   /** Última fila de un bloque: sin divisor inferior. */
   last?: boolean;
   disabled?: boolean;
@@ -36,6 +38,7 @@ export function ListItem({
   leading,
   onPress,
   chevron,
+  strong = false,
   last = false,
   disabled = false,
   accessibilityLabel,
@@ -47,7 +50,7 @@ export function ListItem({
     <>
       {leading ?? (icon ? <Icon name={icon} /> : null)}
       <View style={{ flex: 1, gap: 2 }}>
-        <Text variant="body">{title}</Text>
+        <Text variant={strong ? "bodyStrong" : "body"}>{title}</Text>
         {subtitle ? (
           <Text variant="caption" color="secondary">
             {subtitle}

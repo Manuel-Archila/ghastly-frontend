@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ScrollView, Switch, View } from "react-native";
+import { Switch, View } from "react-native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import {
@@ -16,7 +16,20 @@ import { getRecurringRule, type RecurringRule } from "@/data/repositories/commit
 import { parseCentsFromInput } from "@/domain/money";
 import { formatDateLabel, todayIso } from "@/lib/dates";
 import { confirmDestructive } from "@/ui/confirm";
-import { Button, Chip, DateField, Input, Notice, Screen, ScreenState, Text } from "@/ui/primitives";
+import {
+  Button,
+  Chip,
+  ChipGroup,
+  DateField,
+  DetailRow,
+  Input,
+  Notice,
+  Screen,
+  ScreenState,
+  ScrollScreen,
+  SectionHeader,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function SubscriptionDetailScreen() {
@@ -134,99 +147,96 @@ export default function SubscriptionDetailScreen() {
   }
 
   return (
-    <Screen>
+    <ScrollScreen>
       <Stack.Screen options={{ title: rule.name }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4], paddingBottom: spacing[8] }}>
-        {rule.status === "paused" ? <Notice text="Esta suscripción está pausada." /> : null}
+      {rule.status === "paused" ? <Notice tone="info" text="Esta suscripción está pausada." /> : null}
 
-        <Input label="Nombre" value={name} onChangeText={setName} />
-        <Input
-          label={`Monto (${rule.currency})`}
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="decimal-pad"
-        />
+      <Input label="Nombre" value={name} onChangeText={setName} />
+      <Input
+        label={`Monto (${rule.currency})`}
+        value={amount}
+        onChangeText={setAmount}
+        keyboardType="decimal-pad"
+      />
 
-        {categories.length > 0 ? (
-          <View style={{ gap: spacing[2] }}>
-            <Text variant="caption" color="secondary">
-              Categoría
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-              {categories.map((c) => (
-                <Chip
-                  key={c.id}
-                  label={c.name}
-                  selected={categoryId === c.id}
-                  onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
-                />
-              ))}
-            </View>
-          </View>
-        ) : null}
+      {categories.length > 0 ? (
+        <ChipGroup label="Categoría">
+          {categories.map((c) => (
+            <Chip
+              key={c.id}
+              label={c.name}
+              selected={categoryId === c.id}
+              onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
+            />
+          ))}
+        </ChipGroup>
+      ) : null}
 
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <View style={{ flex: 1, paddingRight: spacing[3] }}>
-            <Text variant="body">Cobrarse sola</Text>
-            <Text variant="caption" color="tertiary">
-              {autoCreate
-                ? "Se registra el gasto solo cada vez que toca, sin avisar."
-                : "Solo avisa; tú confirmás el gasto cada vez que te cobren."}
-            </Text>
-          </View>
-          <Switch value={autoCreate} onValueChange={setAutoCreate} />
-        </View>
-
-        <Input
-          label="Avisar con cuántos días de anticipación"
-          value={reminderDays}
-          onChangeText={setReminderDays}
-          keyboardType="number-pad"
-        />
-
-        {error ? (
-          <Text variant="caption" style={{ color: colors.danger.fg }}>
-            {error}
-          </Text>
-        ) : null}
-
-        <Button label={busy ? "Guardando…" : "Guardar"} onPress={onSave} disabled={busy || !name.trim() || cents === null || !reminderValid} />
-
-        <View style={{ gap: spacing[3], paddingTop: spacing[2], borderTopWidth: 1, borderTopColor: colors.border.subtle }}>
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <View style={{ flex: 1, paddingRight: spacing[3] }}>
+          <Text variant="body">Cobrarse sola</Text>
           <Text variant="caption" color="secondary">
-            Próximo cobro: {formatDateLabel(rule.nextDueDate)}
+            {autoCreate
+              ? "Se registra el gasto solo cada vez que toca, sin avisar."
+              : "Solo avisa; tú confirmás el gasto cada vez que te cobren."}
           </Text>
-
-          {!rule.autoCreate && rule.status === "active" ? (
-            <View style={{ gap: spacing[2] }}>
-              <DateField label="Confirmar cobro del" value={confirmDate} onChange={setConfirmDate} />
-              <Button
-                label="Confirmar cobro (crea el movimiento)"
-                variant="secondary"
-                onPress={onConfirm}
-                disabled={busy}
-              />
-            </View>
-          ) : null}
-
-          <Button
-            label={rule.status === "active" ? "Pausar" : "Reanudar"}
-            variant="secondary"
-            onPress={onTogglePause}
-            disabled={busy}
-          />
-          {rule.status === "active" ? (
-            <Button label="Saltar próxima ocurrencia" variant="secondary" onPress={onSkipNext} disabled={busy} />
-          ) : null}
-          <Button label="Eliminar suscripción" variant="danger" onPress={onDelete} disabled={busy} />
         </View>
-      </ScrollView>
-    </Screen>
+        <Switch
+          accessibilityLabel="Cobrarse sola"
+          value={autoCreate}
+          onValueChange={setAutoCreate}
+          trackColor={{ false: colors.border.control, true: colors.accent.bg }}
+        />
+      </View>
+
+      <Input
+        label="Avisar con cuántos días de anticipación"
+        value={reminderDays}
+        onChangeText={setReminderDays}
+        keyboardType="number-pad"
+      />
+
+      {error ? <Notice tone="danger" text={error} /> : null}
+
+      <Button
+        label={busy ? "Guardando…" : "Guardar"}
+        onPress={onSave}
+        disabled={busy || !name.trim() || cents === null || !reminderValid}
+      />
+
+      <View style={{ gap: spacing[3] }}>
+        <SectionHeader label="Cobros" />
+        <DetailRow label="Próximo cobro" value={formatDateLabel(rule.nextDueDate)} />
+
+        {!rule.autoCreate && rule.status === "active" ? (
+          <View style={{ gap: spacing[2] }}>
+            <DateField label="Confirmar cobro del" value={confirmDate} onChange={setConfirmDate} />
+            <Button
+              label="Confirmar cobro (crea el movimiento)"
+              variant="secondary"
+              onPress={onConfirm}
+              disabled={busy}
+            />
+          </View>
+        ) : null}
+
+        <Button
+          label={rule.status === "active" ? "Pausar" : "Reanudar"}
+          variant="secondary"
+          onPress={onTogglePause}
+          disabled={busy}
+        />
+        {rule.status === "active" ? (
+          <Button label="Saltar próxima ocurrencia" variant="secondary" onPress={onSkipNext} disabled={busy} />
+        ) : null}
+        <Button label="Eliminar suscripción" variant="danger" onPress={onDelete} disabled={busy} />
+      </View>
+    </ScrollScreen>
   );
 }

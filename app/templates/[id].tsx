@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
 import { errorMessageFor } from "@/data/api/error-messages";
@@ -8,7 +8,7 @@ import { runSync } from "@/data/sync";
 import { TemplateForm, type TemplateSubmit } from "@/features/templates/TemplateForm";
 import { useInvalidateTemplates, useTemplates } from "@/features/templates/useTemplates";
 import { confirmDestructive } from "@/ui/confirm";
-import { Button, Screen, ScreenState, Text } from "@/ui/primitives";
+import { Button, Screen, ScreenState, ScrollScreen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function EditTemplateScreen() {
@@ -83,27 +83,25 @@ export default function EditTemplateScreen() {
   }
 
   return (
-    <Screen>
+    <ScrollScreen gap={6}>
       <Stack.Screen options={{ title: current.name }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[6], paddingVertical: spacing[4], paddingBottom: spacing[8] }}>
-        <TemplateForm
-          initial={{
-            name: current.name,
-            kind: current.kind,
-            accountId: current.account_id,
-            categoryId: current.category_id,
-            amount: (current.amount_cents / 100).toFixed(2),
-            description: current.description ?? "",
-          }}
-          submitLabel="Guardar"
-          busy={busy}
-          error={error}
-          onSubmit={(v) => void onSubmit(v)}
-        />
-        <View style={{ gap: spacing[2] }}>
-          <Button label="Eliminar plantilla" variant="danger" disabled={busy} onPress={() => void onDelete()} />
-        </View>
-      </ScrollView>
-    </Screen>
+      <TemplateForm
+        initial={{
+          name: current.name,
+          kind: current.kind,
+          accountId: current.account_id,
+          categoryId: current.category_id,
+          amount: (current.amount_cents / 100).toFixed(2),
+          description: current.description ?? "",
+        }}
+        submitLabel="Guardar"
+        busy={busy}
+        error={error}
+        onSubmit={(v) => void onSubmit(v)}
+      />
+      <View style={{ gap: spacing[2] }}>
+        <Button label="Eliminar plantilla" variant="danger" disabled={busy} onPress={() => void onDelete()} />
+      </View>
+    </ScrollScreen>
   );
 }

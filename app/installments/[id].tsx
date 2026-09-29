@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
@@ -14,9 +14,25 @@ import {
   type InstallmentPlan,
 } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
-import { todayIso } from "@/lib/dates";
+import { formatDateLabel, todayIso } from "@/lib/dates";
 import { confirmDestructive } from "@/ui/confirm";
-import { Button, Chip, FadeIn, Icon, Input, Screen, ScreenState, Text } from "@/ui/primitives";
+import {
+  Button,
+  Chip,
+  ChipGroup,
+  FadeIn,
+  HeroFigure,
+  Icon,
+  Input,
+  ListItem,
+  MoneyText,
+  Notice,
+  Screen,
+  ScreenState,
+  ScrollScreen,
+  SectionHeader,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function InstallmentPlanScreen() {
@@ -122,102 +138,67 @@ export default function InstallmentPlanScreen() {
   }
 
   return (
-    <Screen>
+    <ScrollScreen>
       <Stack.Screen options={{ title: plan.description }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <View>
-          <Text variant="caption" color="secondary">
-            Saldo pendiente
-          </Text>
-          <Text variant="display">{new Money(pendingTotal).format()}</Text>
-        </View>
+      <HeroFigure label="Saldo pendiente" value={new Money(pendingTotal).format()} />
 
-        {nextDue ? (
-          <Button
-            label={busy ? "Registrando…" : `Pagar cuota ${nextDue.number} · ${new Money(nextDue.amountCents).format()}`}
-            onPress={onPay}
-            disabled={busy}
-          />
-        ) : (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[2] }}>
-            <Icon name="sparkles-outline" color={colors.income.fg} />
-            <Text variant="body" color="secondary">
-              Todas las cuotas pagadas
-            </Text>
-          </View>
-        )}
-        {error ? (
-          <Text variant="caption" style={{ color: colors.danger.fg }}>
-            {error}
+      {nextDue ? (
+        <Button
+          label={busy ? "Registrando…" : `Pagar cuota ${nextDue.number} · ${new Money(nextDue.amountCents).format()}`}
+          onPress={onPay}
+          disabled={busy}
+        />
+      ) : (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[2] }}>
+          <Icon name="sparkles-outline" color={colors.income.fg} />
+          <Text variant="body" color="secondary">
+            Todas las cuotas pagadas
           </Text>
+        </View>
+      )}
+      {error ? <Notice tone="danger" text={error} /> : null}
+
+      <View>
+        <SectionHeader label="Cuotas" />
+        {rows.map((r, index) => (
+          <FadeIn key={r.id} delay={index * 20}>
+            <ListItem
+              icon={r.status === "paid" ? "checkmark-circle-outline" : "time-outline"}
+              title={`Cuota ${r.number} de ${plan.installmentsCount}`}
+              subtitle={`${formatDateLabel(r.dueDate)} · ${r.status === "paid" ? "pagada" : "pendiente"}`}
+              trailing={<MoneyText cents={r.amountCents} />}
+              last={index === rows.length - 1}
+            />
+          </FadeIn>
+        ))}
+      </View>
+
+      <View style={{ gap: spacing[4] }}>
+        <SectionHeader label="Detalles del plan" />
+        <Input label="Descripción" value={description} onChangeText={setDescription} />
+        <Input label="Comercio" value={merchant} onChangeText={setMerchant} placeholder="Opcional" />
+
+        {categories.length > 0 ? (
+          <ChipGroup label="Categoría">
+            {categories.map((c) => (
+              <Chip
+                key={c.id}
+                label={c.name}
+                selected={categoryId === c.id}
+                onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
+              />
+            ))}
+          </ChipGroup>
         ) : null}
 
-        <View style={{ gap: spacing[1] }}>
-          {rows.map((r, index) => (
-            <FadeIn key={r.id} delay={index * 20}>
-              <View
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  paddingVertical: spacing[1],
-                }}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[1] }}>
-                  {r.status === "paid" ? (
-                    <Icon name="checkmark-circle-outline" size={16} color={colors.text.tertiary} />
-                  ) : null}
-                  <Text
-                    variant="body"
-                    style={{
-                      color: r.status === "paid" ? colors.text.tertiary : colors.text.primary,
-                    }}
-                  >
-                    {r.number}/{plan.installmentsCount} · {r.dueDate}
-                  </Text>
-                </View>
-                <Text
-                  variant="bodyStrong"
-                  style={{ color: r.status === "paid" ? colors.text.tertiary : colors.text.primary }}
-                >
-                  {new Money(r.amountCents).format()}
-                </Text>
-              </View>
-            </FadeIn>
-          ))}
-        </View>
-
-        <View style={{ gap: spacing[4], paddingTop: spacing[3], borderTopWidth: 1, borderTopColor: colors.border.subtle }}>
-          <Input label="Descripción" value={description} onChangeText={setDescription} />
-          <Input label="Comercio" value={merchant} onChangeText={setMerchant} placeholder="Opcional" />
-
-          {categories.length > 0 ? (
-            <View style={{ gap: spacing[2] }}>
-              <Text variant="caption" color="secondary">
-                Categoría
-              </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-                {categories.map((c) => (
-                  <Chip
-                    key={c.id}
-                    label={c.name}
-                    selected={categoryId === c.id}
-                    onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
-                  />
-                ))}
-              </View>
-            </View>
-          ) : null}
-
-          <Button
-            label={busy ? "Guardando…" : "Guardar"}
-            variant="secondary"
-            onPress={onSave}
-            disabled={busy || !description.trim()}
-          />
-          <Button label="Cancelar plan" variant="danger" onPress={onCancelPlan} disabled={busy} />
-        </View>
-      </ScrollView>
-    </Screen>
+        <Button
+          label={busy ? "Guardando…" : "Guardar"}
+          variant="secondary"
+          onPress={onSave}
+          disabled={busy || !description.trim()}
+        />
+        <Button label="Cancelar plan" variant="danger" onPress={onCancelPlan} disabled={busy} />
+      </View>
+    </ScrollScreen>
   );
 }

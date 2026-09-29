@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
 
@@ -9,7 +9,19 @@ import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { listGoals, type Goal } from "@/data/repositories/commitments";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
-import { Button, Chip, Input, Screen, ScreenState, Text } from "@/ui/primitives";
+import {
+  Button,
+  Chip,
+  ChipGroup,
+  HeroFigure,
+  Input,
+  Notice,
+  ProgressBar,
+  Screen,
+  ScreenState,
+  ScrollScreen,
+  SectionHeader,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function GoalDetailScreen() {
@@ -75,33 +87,36 @@ export default function GoalDetailScreen() {
   const pct = Math.min(100, Math.round((goal.currentAmountCents / goal.targetAmountCents) * 100));
 
   return (
-    <Screen>
+    <ScrollScreen>
       <Stack.Screen options={{ title: goal.name }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <View>
-          <Text variant="display">{new Money(goal.currentAmountCents).format()}</Text>
-          <Text variant="caption" color="secondary">
-            de {new Money(goal.targetAmountCents).format()} · {pct}%
-          </Text>
-        </View>
+      <View style={{ gap: spacing[2] }}>
+        <HeroFigure
+          label="Ahorrado"
+          value={new Money(goal.currentAmountCents).format()}
+          subtitle={`de ${new Money(goal.targetAmountCents).format()} · ${pct} %`}
+        />
+        <ProgressBar percent={pct} color={colors.income.fg} />
+      </View>
 
-        <View style={{ gap: spacing[2] }}>
-          <Input value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="Monto a aportar" />
-          {goal.linkedAccountId ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-              {accounts.map((a) => (
-                <Chip key={a.id} label={a.name} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
-              ))}
-            </View>
-          ) : null}
-          {error ? (
-            <Text variant="caption" style={{ color: colors.danger.fg }}>
-              {error}
-            </Text>
-          ) : null}
-          <Button label={busy ? "Aportando…" : "Aportar"} onPress={onContribute} disabled={busy} />
-        </View>
-      </ScrollView>
-    </Screen>
+      <View style={{ gap: spacing[3] }}>
+        <SectionHeader label="Aportar" />
+        <Input
+          label="Monto a aportar"
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="decimal-pad"
+          placeholder="0.00"
+        />
+        {goal.linkedAccountId ? (
+          <ChipGroup label="Desde la cuenta">
+            {accounts.map((a) => (
+              <Chip key={a.id} label={a.name} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
+            ))}
+          </ChipGroup>
+        ) : null}
+        {error ? <Notice tone="danger" text={error} /> : null}
+        <Button label={busy ? "Aportando…" : "Aportar"} onPress={onContribute} disabled={busy} />
+      </View>
+    </ScrollScreen>
   );
 }

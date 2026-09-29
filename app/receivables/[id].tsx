@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
 import { errorMessageFor } from "@/data/api/error-messages";
@@ -11,7 +11,20 @@ import { useInvalidateReceivables, useReceivables } from "@/features/receivables
 import { formatDateLabel, todayIso } from "@/lib/dates";
 import { uuidv7 } from "@/lib/uuid";
 import { confirmDestructive } from "@/ui/confirm";
-import { Button, Chip, Input, Notice, Screen, ScreenState, Text } from "@/ui/primitives";
+import {
+  Button,
+  Chip,
+  ChipGroup,
+  DateField,
+  HeroFigure,
+  Input,
+  Notice,
+  Screen,
+  ScreenState,
+  ScrollScreen,
+  SectionHeader,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export default function ReceivableDetailScreen() {
@@ -122,73 +135,67 @@ export default function ReceivableDetailScreen() {
   }
 
   return (
-    <Screen>
+    <ScrollScreen>
       <Stack.Screen options={{ title: receivable.counterparty }} />
-      <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4], paddingBottom: spacing[8] }}>
-        <Text variant="display">
-          {new Money(receivable.amount_cents).format()}
-        </Text>
+      <HeroFigure label="Te debe" value={new Money(receivable.amount_cents).format()} />
 
-        {settled ? (
-          <View style={{ gap: spacing[2] }}>
-            <Text variant="body" color="secondary">
-              Liquidado{receivable.settled_at ? ` el ${formatDateLabel(receivable.settled_at)}` : ""}. Ya no se
-              puede editar ni eliminar.
-            </Text>
-            {receivable.settlement_transaction_id ? (
-              <Button
-                label="Ver el ingreso"
-                variant="secondary"
-                onPress={() => router.push(`/transactions/${receivable.settlement_transaction_id}`)}
-              />
-            ) : null}
-          </View>
-        ) : null}
-
-        <Input
-          label="Quién te debe"
-          value={counterparty}
-          onChangeText={setCounterparty}
-          editable={!settled}
-        />
-        <Input
-          label="Monto"
-          value={amount}
-          onChangeText={setAmount}
-          keyboardType="decimal-pad"
-          editable={!settled}
-        />
-
-        {error ? <Notice tone="danger" text={error} /> : null}
-
+      {settled ? (
         <View style={{ gap: spacing[2] }}>
-          <Button label="Guardar cambios" disabled={settled || busy} onPress={() => void onSave()} />
-          <Button label="Eliminar" variant="danger" disabled={settled || busy} onPress={() => void onDelete()} />
+          <Notice
+            tone="success"
+            text={`Liquidado${receivable.settled_at ? ` el ${formatDateLabel(receivable.settled_at)}` : ""}. Ya no se puede editar ni eliminar.`}
+          />
+          {receivable.settlement_transaction_id ? (
+            <Button
+              label="Ver el ingreso"
+              variant="secondary"
+              onPress={() => router.push(`/transactions/${receivable.settlement_transaction_id}`)}
+            />
+          ) : null}
         </View>
+      ) : null}
 
-        {!settled ? (
-          <View style={{ gap: spacing[3] }}>
-            <Text variant="caption" color="secondary">
-              LIQUIDAR (ME PAGARON)
-            </Text>
-            <Text variant="caption" color="tertiary">
-              Crea un ingreso real en la cuenta que elijas. Necesita conexión.
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-              {accounts.map((a) => (
-                <Chip
-                  key={a.id}
-                  label={a.name}
-                  selected={accountId === a.id}
-                  onPress={() => setAccountId(a.id)}
-                />
-              ))}
-            </View>
-            <Input label="Fecha" value={date} onChangeText={setDate} autoCapitalize="none" />
-            <Button label="Liquidar" variant="secondary" disabled={busy} onPress={() => void onSettle()} />
-          </View>
-        ) : null}
-      </ScrollView>
-    </Screen>
+      <Input
+        label="Quién te debe"
+        value={counterparty}
+        onChangeText={setCounterparty}
+        editable={!settled}
+      />
+      <Input
+        label="Monto"
+        value={amount}
+        onChangeText={setAmount}
+        keyboardType="decimal-pad"
+        editable={!settled}
+      />
+
+      {error ? <Notice tone="danger" text={error} /> : null}
+
+      <View style={{ gap: spacing[2] }}>
+        <Button label="Guardar cambios" disabled={settled || busy} onPress={() => void onSave()} />
+        <Button label="Eliminar" variant="danger" disabled={settled || busy} onPress={() => void onDelete()} />
+      </View>
+
+      {!settled ? (
+        <View style={{ gap: spacing[3] }}>
+          <SectionHeader label="Liquidar (me pagaron)" />
+          <Text variant="caption" color="secondary">
+            Crea un ingreso real en la cuenta que elijas. Necesita conexión.
+          </Text>
+          <ChipGroup label="Cuenta donde entró el dinero">
+            {accounts.map((a) => (
+              <Chip
+                key={a.id}
+                label={a.name}
+                selected={accountId === a.id}
+                onPress={() => setAccountId(a.id)}
+              />
+            ))}
+          </ChipGroup>
+          <DateField label="Fecha" value={date} onChange={setDate} />
+          <Button label="Liquidar" variant="secondary" disabled={busy} onPress={() => void onSettle()} />
+        </View>
+      ) : null}
+    </ScrollScreen>
   );
 }

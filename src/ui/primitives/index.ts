@@ -27,6 +27,7 @@ export { HeroFigure } from "./HeroFigure";
 export { MonthSwitcher } from "./MonthSwitcher";
 export { ProgressRow } from "./ProgressRow";
 export { StatCard } from "./StatCard";
+export { ScrollScreen } from "./ScrollScreen";
 export { FormScreen } from "./FormScreen";
 export { ChipGroup } from "./ChipGroup";
 export { ScreenHeader } from "./ScreenHeader";
