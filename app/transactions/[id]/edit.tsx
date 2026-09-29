@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
-import { listCategories, type Category } from "@/data/repositories/categories";
 import {
   amountIsLocked,
   getTransaction,
   updateTransactionLocally,
   type TransactionListItem,
 } from "@/data/repositories/transactions";
+import { isMissingRequiredCategory } from "@/domain/categoryRule";
 import { parseCentsFromInput } from "@/domain/money";
+import { CategoryPicker } from "@/features/categories/CategoryPicker";
 import { triggerSync } from "@/features/sync/sync-manager";
 import {
-  Chip,
-  ChipGroup,
   DateField,
   FormScreen,
   Input,
@@ -26,7 +25,6 @@ export default function EditTransactionScreen() {
   const router = useRouter();
 
   const [txn, setTxn] = useState<TransactionListItem | undefined>();
-  const [categories, setCategories] = useState<Category[]>([]);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [date, setDate] = useState("");
   const [amount, setAmount] = useState("");
@@ -45,7 +43,6 @@ export default function EditTransactionScreen() {
       setAmount((t.amountCents / 100).toFixed(2));
       setDescription(t.description ?? "");
       setNotes(t.notes ?? "");
-      setCategories(await listCategories(t.kind as "expense" | "income"));
     })();
   }, [id]);
 
@@ -55,6 +52,8 @@ export default function EditTransactionScreen() {
 
   const onSave = useCallback(async () => {
     if (!amountValid) return;
+    // Un gasto no puede quedar sin categoría (`domain/categoryRule.ts`).
+    if (txn && isMissingRequiredCategory(txn.kind, categoryId)) return;
     setBusy(true);
     setError(null);
     try {
@@ -71,7 +70,7 @@ export default function EditTransactionScreen() {
       setError("No se pudo guardar el cambio. Intentá de nuevo.");
       setBusy(false);
     }
-  }, [id, categoryId, date, amountEditable, amountCents, amountValid, description, notes, router]);
+  }, [id, txn, categoryId, date, amountEditable, amountCents, amountValid, description, notes, router]);
 
   if (!txn) {
     return (
@@ -90,18 +89,13 @@ export default function EditTransactionScreen() {
         submitLabel="Guardar"
         onSubmit={onSave}
         busy={busy}
-        submitDisabled={!amountValid}
+        submitDisabled={!amountValid || isMissingRequiredCategory(txn.kind, categoryId)}
       >
-        <ChipGroup label="Categoría">
-          {categories.map((c) => (
-            <Chip
-              key={c.id}
-              label={c.name}
-              selected={categoryId === c.id}
-              onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
-            />
-          ))}
-        </ChipGroup>
+        <CategoryPicker
+          kind={txn.kind as "expense" | "income"}
+          value={categoryId}
+          onChange={setCategoryId}
+        />
 
         <DateField label="Fecha" value={date} onChange={setDate} />
 

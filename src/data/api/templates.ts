@@ -1,5 +1,6 @@
 /** Plantillas de gasto: solo online. `GET` viene ordenado por uso. */
 import { api } from "@/data/api/client";
+import { assertCategoryPresent } from "@/domain/categoryRule";
 
 export interface TemplateOut {
   id: string;
@@ -34,6 +35,7 @@ export function getTemplate(id: string): Promise<TemplateOut> {
 }
 
 export function createTemplate(body: TemplateCreate): Promise<TemplateOut> {
+  assertCategoryPresent(body.kind, body.category_id);
   return api.post("/transaction-templates", body);
 }
 

@@ -3,6 +3,7 @@ import { and, desc, eq, gte, isNull, like, lte, or, sql } from "drizzle-orm";
 import { db } from "@/data/db/client";
 import { accounts, categories, outboxMutations, transactions } from "@/data/db/schema";
 import { signedDelta, type AccountType } from "@/domain/balances";
+import { assertCategoryPresent } from "@/domain/categoryRule";
 import { Money } from "@/domain/money";
 import { planTransactionRestore, type RestoreOutcome } from "@/domain/undo";
 import { uuidv7 } from "@/lib/uuid";
@@ -58,6 +59,9 @@ async function applyBalanceDelta(
  * en una transacción de DB. La UI se actualiza al instante (PLAN-frontend §3).
  */
 export async function createTransactionLocally(input: CreateTransactionInput): Promise<string> {
+  // Defensa en profundidad: la UI ya no deja llegar acá sin categoría, y el
+  // backend la exige igual. Falla antes de escribir nada en SQLite.
+  assertCategoryPresent(input.kind, input.categoryId);
   const id = uuidv7();
   const now = new Date().toISOString();
   const currency = input.currency ?? "GTQ";
@@ -198,6 +202,15 @@ export async function updateTransactionLocally(
 ): Promise<void> {
   const now = new Date().toISOString();
   await db.transaction(async (tx) => {
+    if (patch.categoryId !== undefined) {
+      // Quitar la categoría de un gasto no se puede; de un ingreso, sí.
+      const [current] = await tx
+        .select({ kind: transactions.kind })
+        .from(transactions)
+        .where(eq(transactions.id, id))
+        .limit(1);
+      if (current) assertCategoryPresent(current.kind, patch.categoryId);
+    }
     const fieldPatch: Record<string, unknown> = { ...patch, updatedAt: now };
 
     if (patch.amountCents !== undefined) {

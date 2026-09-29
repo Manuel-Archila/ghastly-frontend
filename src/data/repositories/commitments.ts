@@ -108,13 +108,16 @@ export interface InstallmentCommitment {
   totalLiabilityCents: number;
 }
 
-export async function computeInstallmentCommitment(): Promise<InstallmentCommitment> {
+/** `excludePlanIds`: planes ocultos por un borrado pendiente de confirmar (aún
+ * no salió del servidor, pero ya no deben contar en pantalla). */
+export async function computeInstallmentCommitment(
+  excludePlanIds: ReadonlySet<string> = new Set(),
+): Promise<InstallmentCommitment> {
   const today = todayIso();
   const monthEnd = `${today.slice(0, 7)}-31`;
-  const rows = await db
-    .select()
-    .from(installments)
-    .where(eq(installments.status, "pending"));
+  const rows = (
+    await db.select().from(installments).where(eq(installments.status, "pending"))
+  ).filter((i) => !excludePlanIds.has(i.planId));
 
   const monthlyCommitmentCents = rows
     .filter((i) => i.dueDate >= today.slice(0, 8) + "01" && i.dueDate <= monthEnd)

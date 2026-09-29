@@ -5,8 +5,8 @@ import { Stack, useRouter } from "expo-router";
 import { createRecurringRule } from "@/data/api/commitments";
 import { errorMessageFor } from "@/data/api/error-messages";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
-import { listCategories, type Category } from "@/data/repositories/categories";
 import { parseCentsFromInput } from "@/domain/money";
+import { CategoryPicker } from "@/features/categories/CategoryPicker";
 import { frequencyLabel } from "@/features/subscriptions/frequency-label";
 import { addDays, todayIso } from "@/lib/dates";
 import { Chip, ChipGroup, DateField, FormScreen, Input, Text } from "@/ui/primitives";
@@ -28,7 +28,6 @@ export default function NewSubscriptionScreen() {
   const [amount, setAmount] = useState("");
   const [frequency, setFrequency] = useState<string>("monthly");
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [chargedGtq, setChargedGtq] = useState("");
@@ -39,9 +38,8 @@ export default function NewSubscriptionScreen() {
 
   useEffect(() => {
     void (async () => {
-      const [a, c] = await Promise.all([listAccounts(), listCategories("expense")]);
+      const a = await listAccounts();
       setAccounts(a);
-      setCategories(c);
       setAccountId(a[0]?.id ?? null);
     })();
   }, []);
@@ -61,7 +59,7 @@ export default function NewSubscriptionScreen() {
   const fxRateValid = !needsFxRate || fxRate !== null;
 
   async function onSave() {
-    if (!name.trim() || cents === null || !accountId || !fxRateValid) return;
+    if (!name.trim() || cents === null || !accountId || !categoryId || !fxRateValid) return;
     setBusy(true);
     setError(null);
     try {
@@ -93,7 +91,7 @@ export default function NewSubscriptionScreen() {
         submitLabel="Guardar"
         onSubmit={onSave}
         busy={busy}
-        submitDisabled={!name.trim() || cents === null || !accountId || !fxRateValid}
+        submitDisabled={!name.trim() || cents === null || !accountId || !categoryId || !fxRateValid}
       >
         <Input label="Nombre" value={name} onChangeText={setName} placeholder="Netflix" />
         <Input
@@ -175,18 +173,7 @@ export default function NewSubscriptionScreen() {
           />
         ) : null}
 
-        {categories.length > 0 ? (
-          <ChipGroup label="Categoría">
-            {categories.map((c) => (
-              <Chip
-                key={c.id}
-                label={c.name}
-                selected={categoryId === c.id}
-                onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
-              />
-            ))}
-          </ChipGroup>
-        ) : null}
+        <CategoryPicker kind="expense" value={categoryId} onChange={setCategoryId} />
       </FormScreen>
     </>
   );

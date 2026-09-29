@@ -11,15 +11,15 @@ import {
   updateRecurringRule,
 } from "@/data/api/commitments";
 import { errorMessageFor } from "@/data/api/error-messages";
-import { listCategories, type Category } from "@/data/repositories/categories";
 import { getRecurringRule, type RecurringRule } from "@/data/repositories/commitments";
 import { parseCentsFromInput } from "@/domain/money";
 import { formatDateLabel, todayIso } from "@/lib/dates";
+import { isMissingRequiredCategory } from "@/domain/categoryRule";
+import { CategoryPicker } from "@/features/categories/CategoryPicker";
+import { deferDelete } from "@/features/undo/deferred-delete";
 import { confirmDestructive } from "@/ui/confirm";
 import {
   Button,
-  Chip,
-  ChipGroup,
   DateField,
   DetailRow,
   Input,
@@ -38,7 +38,6 @@ export default function SubscriptionDetailScreen() {
   const { spacing, colors } = useTokens();
 
   const [rule, setRule] = useState<RecurringRule | undefined>();
-  const [categories, setCategories] = useState<Category[]>([]);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -57,7 +56,6 @@ export default function SubscriptionDetailScreen() {
     setCategoryId(r.categoryId);
     setAutoCreate(r.autoCreate);
     setReminderDays(String(r.reminderDaysBefore));
-    setCategories(await listCategories(r.kind as "expense" | "income"));
   }, [id]);
 
   useFocusEffect(
@@ -94,10 +92,12 @@ export default function SubscriptionDetailScreen() {
 
   async function onSave() {
     if (!rule || !name.trim() || cents === null || !reminderValid) return;
+    if (isMissingRequiredCategory(rule.kind, categoryId)) return;
     await run("guardar", async () => {
       await updateRecurringRule(rule.id, {
         name: name.trim(),
-        categoryId,
+        // No se puede quitar la categoría de un gasto (`domain/categoryRule.ts`).
+        categoryId: categoryId ?? undefined,
         amountCents: cents!,
         autoCreate,
         reminderDaysBefore: reminderDaysNum,
@@ -128,22 +128,19 @@ export default function SubscriptionDetailScreen() {
     await run("confirmar", () => confirmRecurringRule(rule.id, confirmDate));
   }
 
-  async function onDelete() {
+  function onDelete() {
     if (!rule) return;
-    const ok = await confirmDestructive(
-      `Eliminar ${rule.name}`,
-      "Se deja de cobrar. Los movimientos que ya generó se conservan.",
-      "Eliminar",
-    );
-    if (!ok) return;
-    setBusy(true);
-    try {
-      await deleteRecurringRule(rule.id);
-      router.back();
-    } catch (e) {
-      setError(errorMessageFor(e, "No se pudo eliminar."));
-      setBusy(false);
-    }
+    // Sin diálogo: se oculta ya y el aviso ofrece Deshacer. El API se llama
+    // cuando expira. Los movimientos que ya generó se conservan.
+    const target = rule;
+    deferDelete({
+      entity: "subscription",
+      id: target.id,
+      message: `${target.name} eliminada`,
+      failureMessage: "No se pudo eliminar la suscripción.",
+      perform: () => deleteRecurringRule(target.id),
+    });
+    router.back();
   }
 
   return (
@@ -159,18 +156,11 @@ export default function SubscriptionDetailScreen() {
         keyboardType="decimal-pad"
       />
 
-      {categories.length > 0 ? (
-        <ChipGroup label="Categoría">
-          {categories.map((c) => (
-            <Chip
-              key={c.id}
-              label={c.name}
-              selected={categoryId === c.id}
-              onPress={() => setCategoryId(categoryId === c.id ? null : c.id)}
-            />
-          ))}
-        </ChipGroup>
-      ) : null}
+      <CategoryPicker
+        kind={rule.kind as "expense" | "income"}
+        value={categoryId}
+        onChange={setCategoryId}
+      />
 
       <View
         style={{
@@ -207,7 +197,13 @@ export default function SubscriptionDetailScreen() {
       <Button
         label={busy ? "Guardando…" : "Guardar"}
         onPress={onSave}
-        disabled={busy || !name.trim() || cents === null || !reminderValid}
+        disabled={
+          busy ||
+          !name.trim() ||
+          cents === null ||
+          !reminderValid ||
+          isMissingRequiredCategory(rule.kind, categoryId)
+        }
       />
 
       <View style={{ gap: spacing[3] }}>

@@ -2,20 +2,17 @@ import { useCallback, useMemo, useState } from "react";
 import { Switch, View } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 
-import { errorMessageFor } from "@/data/api/error-messages";
 import {
   listCategoriesForManagement,
   type Category,
 } from "@/data/repositories/categories";
 import { flattenTree } from "@/domain/categoryTree";
 import { asIconName } from "@/features/categories/presets";
-import { seedCategoriesFromServer } from "@/features/categories/seed";
 import {
   Button,
   FadeIn,
   Icon,
   ListItem,
-  Notice,
   ScreenState,
   ScrollScreen,
   SegmentedControl,
@@ -31,8 +28,6 @@ export default function CategoriesScreen() {
   const [loaded, setLoaded] = useState(false);
   const [kind, setKind] = useState<"expense" | "income">("expense");
   const [showArchived, setShowArchived] = useState(false);
-  const [seeding, setSeeding] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setAll(await listCategoriesForManagement(true));
@@ -50,19 +45,6 @@ export default function CategoriesScreen() {
       flattenTree(all.filter((c) => c.kind === kind && (showArchived || !c.isArchived))),
     [all, kind, showArchived],
   );
-
-  async function onSeed() {
-    if (seeding) return;
-    setSeeding(true);
-    setError(null);
-    try {
-      await seedCategoriesFromServer();
-      await load();
-    } catch (e) {
-      setError(errorMessageFor(e, "No se pudieron cargar las categorías. Reintentá."));
-    }
-    setSeeding(false);
-  }
 
   const status = !loaded ? "loading" : rows.length === 0 ? "empty" : "data";
 
@@ -90,15 +72,13 @@ export default function CategoriesScreen() {
         />
       </View>
 
-      {error ? <Notice tone="danger" text={error} /> : null}
-
       <ScreenState
         status={status}
         empty={{
           message: "Todavía no hay categorías de este tipo.",
           icon: "pricetags-outline",
-          actionLabel: seeding ? "Cargando…" : "Cargar categorías por defecto",
-          onAction: () => void onSeed(),
+          actionLabel: "Crear la primera categoría",
+          onAction: () => router.push("/categories/new"),
         }}
       >
         <View>
@@ -122,16 +102,8 @@ export default function CategoriesScreen() {
           })}
         </View>
 
-        <Button
-          label={seeding ? "Cargando…" : "Cargar categorías por defecto"}
-          variant="ghost"
-          disabled={seeding}
-          onPress={() => void onSeed()}
-        />
+        <Button label="Nueva categoría" onPress={() => router.push("/categories/new")} />
       </ScreenState>
-
-      {/* Siempre disponible, también con la lista vacía. */}
-      <Button label="Nueva categoría" onPress={() => router.push("/categories/new")} />
     </ScrollScreen>
   );
 }

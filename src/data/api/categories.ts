@@ -1,6 +1,6 @@
 /**
  * Operaciones de categorías que NO viajan por sync: cambiar el padre,
- * fusionar, reordenar en bloque y la semilla. Son online — el servidor
+ * fusionar y reordenar en bloque. Son online — el servidor
  * valida (`CATEGORY_TOO_DEEP`, `CATEGORY_KIND_MISMATCH`,
  * `CATEGORY_MERGE_NOOP`) y después se fuerza un pull.
  */
@@ -32,6 +32,3 @@ export function reorderCategories(ids: string[]): Promise<unknown> {
 }
 
 /** Idempotente. */
-export function seedDefaultCategories(): Promise<unknown> {
-  return api.post("/categories/seed");
-}

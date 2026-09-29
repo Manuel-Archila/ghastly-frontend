@@ -3,6 +3,7 @@ import { Stack, useRouter } from "expo-router";
 
 import { Money } from "@/domain/money";
 import { useReceivables } from "@/features/receivables/useReceivables";
+import { useIsHiddenByDelete } from "@/features/undo/deferred-delete";
 import {
   FadeIn,
   HeroFigure,
@@ -17,7 +18,9 @@ import { useTokens } from "@/ui/tokens";
 export default function ReceivablesScreen() {
   const router = useRouter();
   const { spacing } = useTokens();
-  const { receivables, isLoading, isError, refetch } = useReceivables();
+  const { receivables: all, isLoading, isError, refetch } = useReceivables();
+  const isHidden = useIsHiddenByDelete();
+  const receivables = all.filter((r) => !isHidden("receivable", r.id));
 
   const pending = receivables.filter((r) => r.status === "pending");
   const settled = receivables.filter((r) => r.status === "settled");

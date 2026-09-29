@@ -1,10 +1,11 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 
 import { computeSubscriptionSummary, type SubscriptionSummary } from "@/data/repositories/commitments";
 import { Money } from "@/domain/money";
 import { frequencyLabel } from "@/features/subscriptions/frequency-label";
+import { useDeleteVersion, useIsHiddenByDelete } from "@/features/undo/deferred-delete";
 import { formatDateLabel } from "@/lib/dates";
 import {
   Button,
@@ -25,15 +26,34 @@ export default function SubscriptionsScreen() {
   const { spacing, colors, iconSize } = useTokens();
   const [summary, setSummary] = useState<SubscriptionSummary | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      void computeSubscriptionSummary().then(setSummary);
-    }, []),
-  );
+  const isHidden = useIsHiddenByDelete();
+  const deleteVersion = useDeleteVersion();
 
-  const status = !summary
+  const load = useCallback(() => {
+    void computeSubscriptionSummary().then(setSummary);
+  }, []);
+
+  useFocusEffect(load);
+
+  // También se recarga cada vez que termina un borrado (la lista abierta tiene
+  // el registro viejo en memoria).
+  useEffect(() => {
+    if (deleteVersion > 0) load();
+  }, [deleteVersion, load]);
+
+  // Lo que está por borrarse (aviso de Deshacer en curso) ya no se muestra ni
+  // cuenta en los totales.
+  const view = useMemo(() => {
+    if (!summary) return null;
+    const items = summary.items.filter((i) => !isHidden("subscription", i.rule.id));
+    const paused = summary.paused.filter((r) => !isHidden("subscription", r.id));
+    const totalMonthlyCents = items.reduce((sum, i) => sum + i.monthlyEquivalentCents, 0);
+    return { items, paused, totalMonthlyCents, totalAnnualizedCents: totalMonthlyCents * 12 };
+  }, [summary, isHidden]);
+
+  const status = !view
     ? "loading"
-    : summary.items.length === 0 && summary.paused.length === 0
+    : view.items.length === 0 && view.paused.length === 0
       ? "empty"
       : "data";
 
@@ -41,11 +61,11 @@ export default function SubscriptionsScreen() {
     <Screen>
       <Stack.Screen options={{ title: "Suscripciones" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[5], paddingVertical: spacing[4] }}>
-        {summary ? (
+        {view ? (
           <HeroFigure
             label="Costo mensual"
-            value={new Money(summary.totalMonthlyCents).format()}
-            subtitle={`${new Money(summary.totalAnnualizedCents).format()} al año`}
+            value={new Money(view.totalMonthlyCents).format()}
+            subtitle={`${new Money(view.totalAnnualizedCents).format()} al año`}
           />
         ) : null}
 
@@ -58,13 +78,13 @@ export default function SubscriptionsScreen() {
             onAction: () => router.push("/subscriptions/new"),
           }}
         >
-          {summary && summary.items.length === 0 ? (
+          {view && view.items.length === 0 ? (
             <Text variant="body" color="secondary">
               No hay suscripciones activas.
             </Text>
           ) : null}
 
-          {summary?.items.map(({ rule, monthlyEquivalentCents, priceIncreased }, index) => (
+          {view?.items.map(({ rule, monthlyEquivalentCents, priceIncreased }, index) => (
             <FadeIn key={rule.id} delay={index * 30}>
               <ListItem
                 title={rule.name}
@@ -91,17 +111,17 @@ export default function SubscriptionsScreen() {
             </FadeIn>
           ))}
 
-          {summary && summary.paused.length > 0 ? (
+          {view && view.paused.length > 0 ? (
             <View>
               <SectionHeader label="Pausadas" />
-              {summary.paused.map((rule, index) => (
+              {view.paused.map((rule, index) => (
                 <ListItem
                   key={rule.id}
                   title={rule.name}
                   subtitle={frequencyLabel(rule.frequency)}
                   trailing={<MoneyText cents={rule.amountCents} variant="body" />}
                   onPress={() => router.push(`/subscriptions/${rule.id}`)}
-                  last={index === summary.paused.length - 1}
+                  last={index === view.paused.length - 1}
                 />
               ))}
             </View>

@@ -6,6 +6,7 @@ import { createInstallmentPlan } from "@/data/api/commitments";
 import { errorMessageFor } from "@/data/api/error-messages";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { generateInstallmentSchedule } from "@/domain/installments";
+import { CategoryPicker } from "@/features/categories/CategoryPicker";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { formatDateLabel, todayIso } from "@/lib/dates";
 import {
@@ -29,6 +30,7 @@ export default function NewInstallmentPlanScreen() {
   const [firstPaymentDate, setFirstPaymentDate] = useState(todayIso());
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [accountId, setAccountId] = useState<string | null>(null);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -50,13 +52,21 @@ export default function NewInstallmentPlanScreen() {
   }, [totalCents, countNum, firstPaymentDate]);
 
   async function onSave() {
-    if (!description.trim() || totalCents === null || !accountId || preview.length === 0) return;
+    if (
+      !description.trim() ||
+      totalCents === null ||
+      !accountId ||
+      !categoryId ||
+      preview.length === 0
+    ) {
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       await createInstallmentPlan({
         accountId,
-        categoryId: null,
+        categoryId,
         description: description.trim(),
         totalAmountCents: totalCents,
         installmentsCount: countNum,
@@ -77,7 +87,7 @@ export default function NewInstallmentPlanScreen() {
         submitLabel="Guardar"
         onSubmit={onSave}
         busy={busy}
-        submitDisabled={preview.length === 0 || !description.trim() || !accountId}
+        submitDisabled={preview.length === 0 || !description.trim() || !accountId || !categoryId}
       >
         <Input label="Descripción" value={description} onChangeText={setDescription} placeholder="Celular" />
         <Input
@@ -95,6 +105,8 @@ export default function NewInstallmentPlanScreen() {
             <Chip key={a.id} label={a.name} selected={accountId === a.id} onPress={() => setAccountId(a.id)} />
           ))}
         </ChipGroup>
+
+        <CategoryPicker kind="expense" value={categoryId} onChange={setCategoryId} />
 
         {preview.length > 0 ? (
           <View style={{ gap: spacing[1] }}>
