@@ -20,7 +20,7 @@ export interface DateFieldProps {
  * texto libre "AAAA-MM-DD" en formularios donde la fecha no siempre es hoy
  * (una suscripción con cobro a mitad de mes, por ejemplo). */
 export function DateField({ label, value, onChange, minimumDate }: DateFieldProps) {
-  const { colors, spacing, radii, typography, minTouchTarget } = useTokens();
+  const { colors, spacing, radii, minTouchTarget, opacity, stroke, iconSize } = useTokens();
   const [open, setOpen] = useState(false);
 
   const parsed = parseISO(value);
@@ -49,26 +49,25 @@ export function DateField({ label, value, onChange, minimumDate }: DateFieldProp
       ) : null}
       <Pressable
         accessibilityRole="button"
+        accessibilityLabel={label ? `${label}, ${display}` : display}
         onPress={() => setOpen(true)}
         style={({ pressed }) => [
           {
             minHeight: minTouchTarget,
             borderRadius: radii.sm,
-            borderWidth: 1,
-            borderColor: colors.border.subtle,
+            borderWidth: stroke.hairline,
+            borderColor: colors.border.control,
             paddingHorizontal: spacing[3],
             backgroundColor: colors.bg.surface,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            opacity: pressed ? 0.7 : 1,
+            opacity: pressed ? opacity.pressed : 1,
           },
         ]}
       >
-        <Text variant="body" style={typography.body}>
-          {display}
-        </Text>
-        <Icon name="calendar-outline" size={18} color={colors.text.tertiary} />
+        <Text variant="body">{display}</Text>
+        <Icon name="calendar-outline" size={iconSize.md} color={colors.text.secondary} />
       </Pressable>
       {open ? (
         <DateTimePicker

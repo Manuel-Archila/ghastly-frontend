@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 
@@ -8,7 +9,8 @@ import { queryClient } from "@/data/query-client";
 import { listAccounts } from "@/data/repositories/accounts";
 import { useSessionStore } from "@/features/auth/session-store";
 import { useSyncOnForeground } from "@/features/sync/sync-manager";
-import { Text } from "@/ui/primitives";
+import { Text, ToastHost } from "@/ui/primitives";
+import { useReducedMotion } from "@/ui/useReducedMotion";
 import { useTokens } from "@/ui/tokens";
 
 /**
@@ -24,6 +26,7 @@ export default function RootLayout() {
   const segments = useSegments();
   const router = useRouter();
   const { colors } = useTokens();
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (migrationsReady) void restore();
@@ -75,25 +78,32 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <Stack
-        screenOptions={{
-          headerShown: true,
-          headerShadowVisible: false,
-          headerStyle: { backgroundColor: colors.bg.surface },
-          headerTintColor: colors.accent.bg,
-          // Sin fontSize/fontWeight propios: el título nativo por default ya
-          // es 17/600 (el mismo valor que se hubiera hardcodeado acá, sin
-          // inventar un literal fuera de `ui/tokens/typography`) y sigue el
-          // ajuste de tamaño de letra del sistema mejor que un valor fijo.
-          headerTitleStyle: { color: colors.text.primary },
-        }}
-      >
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(modals)" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-      </Stack>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <Stack
+          screenOptions={{
+            headerShown: true,
+            headerShadowVisible: false,
+            // Con "Reducir movimiento" las pantallas se funden en vez de deslizar.
+            animation: reduceMotion ? "fade" : "default",
+            // Solo la flecha: el título de la pantalla anterior se truncaba en iOS.
+            headerBackButtonDisplayMode: "minimal",
+            headerStyle: { backgroundColor: colors.bg.surface },
+            headerTintColor: colors.accent.bg,
+            // Sin fontSize/fontWeight propios: el título nativo por default ya
+            // es 17/600 (el mismo valor que se hubiera hardcodeado acá, sin
+            // inventar un literal fuera de `ui/tokens/typography`) y sigue el
+            // ajuste de tamaño de letra del sistema mejor que un valor fijo.
+            headerTitleStyle: { color: colors.text.primary },
+          }}
+        >
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(modals)" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+        </Stack>
+        <ToastHost />
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

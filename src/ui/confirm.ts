@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { Alert } from "react-native";
 
 /** Confirmación de acciones destructivas. Resuelve `true` solo si confirman. */
@@ -12,7 +13,14 @@ export function confirmDestructive(
       message,
       [
         { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
-        { text: confirmLabel, style: "destructive", onPress: () => resolve(true) },
+        {
+          text: confirmLabel,
+          style: "destructive",
+          onPress: () => {
+            void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            resolve(true);
+          },
+        },
       ],
       { cancelable: true, onDismiss: () => resolve(false) },
     );

@@ -1,3 +1,4 @@
+import * as Haptics from "expo-haptics";
 import { Pressable, View } from "react-native";
 
 import { Text } from "@/ui/primitives/Text";
@@ -22,15 +23,16 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
 }: SegmentedControlProps<T>) {
-  const { colors, spacing, radii, minTouchTarget } = useTokens();
+  const { colors, spacing, radii, minTouchTarget, opacity } = useTokens();
 
   return (
     <View
+      accessibilityRole="tablist"
       style={{
         flexDirection: "row",
         backgroundColor: colors.bg.sunken,
         borderRadius: radii.md,
-        padding: 2,
+        padding: spacing[1] / 2,
       }}
     >
       {options.map((option) => {
@@ -38,23 +40,30 @@ export function SegmentedControl<T extends string>({
         return (
           <Pressable
             key={option.value}
-            accessibilityRole="button"
+            accessibilityRole="tab"
             accessibilityState={{ selected }}
-            onPress={() => onChange(option.value)}
-            style={{
+            onPress={() => {
+              if (selected) return;
+              void Haptics.selectionAsync();
+              onChange(option.value);
+            }}
+            style={({ pressed }) => ({
               flex: 1,
-              minHeight: minTouchTarget - 8,
+              minHeight: minTouchTarget,
               alignItems: "center",
               justifyContent: "center",
               borderRadius: radii.sm,
               paddingHorizontal: spacing[1],
               backgroundColor: selected ? colors.bg.surface : "transparent",
-            }}
+              opacity: pressed && !selected ? opacity.pressedSubtle : 1,
+            })}
           >
             <Text
               variant="caption"
-              numberOfLines={1}
-              style={{ color: selected ? colors.text.primary : colors.text.secondary }}
+              style={{
+                color: selected ? colors.text.primary : colors.text.secondary,
+                textAlign: "center",
+              }}
             >
               {option.label}
             </Text>

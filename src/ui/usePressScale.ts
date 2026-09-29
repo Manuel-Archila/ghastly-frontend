@@ -1,35 +1,38 @@
-import { useEffect, useState } from "react";
-import { AccessibilityInfo, Animated } from "react-native";
+import { useState } from "react";
+import { cubicBezier, type CSSTransitionProperties } from "react-native-reanimated";
+
+import { bezier, duration, pressScale } from "@/ui/tokens/motion";
+import { useReducedMotion } from "@/ui/useReducedMotion";
+
+const TRANSITION: CSSTransitionProperties = {
+  transitionProperty: "transform",
+  transitionDuration: duration.press,
+  transitionTimingFunction: cubicBezier(...bezier.out),
+};
 
 /**
- * Feedback de presión compartido por `Button` y `Chip`: achica levemente
- * al presionar y vuelve con spring al soltar. Respeta "Reducir movimiento"
- * (mismo criterio que `Skeleton.tsx`) — si está activo, la escala se queda
- * fija en 1 y solo queda el cambio de opacidad que ya hacía cada primitiva.
+ * Feedback de presión compartido por `Button` y `Chip`: achica a 0.97 al
+ * presionar y vuelve al soltar. Es una transición CSS de Reanimated (corre en
+ * el hilo de UI, se puede interrumpir a mitad sin saltos) — no hay valores
+ * compartidos ni un frame de JS de por medio.
+ *
+ * Se aplica al `Animated.View` INTERNO, nunca al `Pressable`: envolver
+ * `Pressable` con un componente animado rompe su `style` como función de
+ * `state` (ya pasó una vez).
+ *
+ * "Reducir movimiento": la escala se queda en 1 y solo queda el cambio de
+ * opacidad que ya hace cada primitiva.
  */
 export function usePressScale() {
-  const [scale] = useState(() => new Animated.Value(1));
-  const [reduceMotion, setReduceMotion] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const [pressed, setPressed] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (!cancelled) setReduceMotion(enabled);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  function onPressIn() {
-    if (reduceMotion) return;
-    Animated.timing(scale, { toValue: 0.97, duration: 80, useNativeDriver: true }).start();
-  }
-
-  function onPressOut() {
-    if (reduceMotion) return;
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
-  }
-
-  return { scale, onPressIn, onPressOut };
+  return {
+    pressStyle: {
+      ...TRANSITION,
+      transform: [{ scale: pressed && !reduceMotion ? pressScale : 1 }],
+    },
+    onPressIn: () => setPressed(true),
+    onPressOut: () => setPressed(false),
+  };
 }
