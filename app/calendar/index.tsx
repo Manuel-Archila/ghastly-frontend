@@ -1,74 +1,38 @@
-import { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, View, type ViewStyle } from "react-native";
+import { memo, useCallback, useMemo, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
 import { Stack, useFocusEffect } from "expo-router";
 
 import type { Ionicons } from "@expo/vector-icons";
 
 import { computeUpcoming, type CommitmentEvent } from "@/features/calendar/upcoming";
+import {
+  COMMITMENT_LABEL,
+  CommitmentMark,
+  type CommitmentKind,
+} from "@/features/calendar/CommitmentMark";
 import { Money } from "@/domain/money";
-import { daysBetween, todayIso } from "@/lib/dates";
-import { FadeIn, Icon, Screen, Text } from "@/ui/primitives";
+import { daysBetween, formatDateLabel, formatMonthLabel, todayIso } from "@/lib/dates";
+import {
+  FadeIn,
+  HeroFigure,
+  ListItem,
+  MoneyText,
+  MonthSwitcher,
+  Screen,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 const WEEKDAYS = ["D", "L", "M", "M", "J", "V", "S"];
-const MONTHS = [
-  "enero", "febrero", "marzo", "abril", "mayo", "junio",
-  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-];
+const MAX_MARKS = 3;
+const KINDS: CommitmentKind[] = ["recurring", "installment", "card_statement", "card_payment"];
 
-const DOT_ICON: Record<CommitmentEvent["kind"], keyof typeof Ionicons.glyphMap> = {
+const KIND_ICON: Record<CommitmentEvent["kind"], keyof typeof Ionicons.glyphMap> = {
   recurring: "repeat-outline",
   installment: "layers-outline",
   card_statement: "card-outline",
   card_payment: "card-outline",
 };
-
-function dotColor(
-  kind: CommitmentEvent["kind"],
-  colors: ReturnType<typeof useTokens>["colors"],
-): string {
-  switch (kind) {
-    case "recurring":
-      return colors.transfer.fg;
-    case "installment":
-      return colors.accent.bg;
-    case "card_statement":
-      return colors.warning.fg;
-    case "card_payment":
-      return colors.expense.fg;
-  }
-}
-
-/** Cada tipo de compromiso también se distingue por FORMA, no solo color
- * (CLAUDE.md "nunca solo color" / DESIGN.md Sign-and-Icon Rule) — a este
- * tamaño un ícono real no se lee, pero un círculo, un cuadrado, un rombo y
- * un anillo sí se distinguen sin depender del matiz. */
-const DOT_SIZE = 6;
-
-function dotStyle(kind: CommitmentEvent["kind"], color: string): ViewStyle {
-  const base: ViewStyle = { width: DOT_SIZE, height: DOT_SIZE };
-  switch (kind) {
-    case "recurring":
-      return { ...base, borderRadius: DOT_SIZE / 2, backgroundColor: color }; // círculo
-    case "installment":
-      return { ...base, borderRadius: 1, backgroundColor: color }; // cuadrado
-    case "card_statement":
-      return {
-        ...base,
-        borderRadius: 1,
-        backgroundColor: color,
-        transform: [{ rotate: "45deg" }],
-      }; // rombo
-    case "card_payment":
-      return {
-        ...base,
-        borderRadius: DOT_SIZE / 2,
-        borderWidth: 1.5,
-        borderColor: color,
-        backgroundColor: "transparent",
-      }; // anillo
-  }
-}
 
 function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split("-").map(Number);
@@ -76,13 +40,80 @@ function shiftMonth(month: string, delta: number): string {
   return d.toISOString().slice(0, 7);
 }
 
+/** "Día 5, 2 compromisos: suscripción, cuota" — el tipo se anuncia, no se
+ * deduce del color ni de la forma. */
+function dayLabel(dayNum: number, events: CommitmentEvent[]): string {
+  if (events.length === 0) return `Día ${dayNum}`;
+  const kinds = [...new Set(events.map((e) => COMMITMENT_LABEL[e.kind].toLowerCase()))];
+  return `Día ${dayNum}, ${events.length} compromiso${events.length > 1 ? "s" : ""}: ${kinds.join(", ")}`;
+}
+
+const DayCell = memo(function DayCell({
+  iso,
+  events,
+  isToday,
+  isSelected,
+  onSelect,
+}: {
+  iso: string;
+  events: CommitmentEvent[];
+  isToday: boolean;
+  isSelected: boolean;
+  onSelect: (iso: string) => void;
+}) {
+  const { colors, spacing, radii, minTouchTarget, iconSize, stroke, dot } = useTokens();
+  const dayNum = Number(iso.slice(8, 10));
+  const circle = iconSize.lg + spacing[1];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={dayLabel(dayNum, events)}
+      accessibilityState={{ selected: isSelected }}
+      onPress={() => onSelect(iso)}
+      style={{
+        width: `${100 / 7}%`,
+        minHeight: minTouchTarget + spacing[1],
+        alignItems: "center",
+        justifyContent: "center",
+        gap: spacing[1],
+      }}
+    >
+      <View
+        style={{
+          width: circle,
+          height: circle,
+          borderRadius: radii.full,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: isSelected ? colors.accent.bg : "transparent",
+          // Hoy se marca con un aro, no solo con color de fondo.
+          borderWidth: isToday ? stroke.control : 0,
+          borderColor: colors.accent.bg,
+        }}
+      >
+        <Text
+          variant="caption"
+          style={{ color: isSelected ? colors.accent.fg : colors.text.primary }}
+        >
+          {dayNum}
+        </Text>
+      </View>
+      <View style={{ flexDirection: "row", gap: spacing[1], height: dot.sm }}>
+        {events.slice(0, MAX_MARKS).map((e, j) => (
+          <CommitmentMark key={j} kind={e.kind} />
+        ))}
+      </View>
+    </Pressable>
+  );
+});
+
 /**
- * Grilla mensual (PLAN-frontend §6.9): cada día con un punto de color por
- * compromiso que cae ese día. Tocar un día abre su detalle abajo. Los
- * compromisos son a futuro — meses pasados salen vacíos.
+ * Grilla mensual (PLAN-frontend §6.9): cada día con una marca por compromiso
+ * que cae ese día. Tocar un día abre su detalle abajo. Los compromisos son a
+ * futuro — meses pasados salen vacíos.
  */
 export default function CalendarScreen() {
-  const { spacing, colors, radii, minTouchTarget } = useTokens();
+  const { spacing, minTouchTarget } = useTokens();
   const today = todayIso();
   const [visibleMonth, setVisibleMonth] = useState(today.slice(0, 7));
   const [byDate, setByDate] = useState<Map<string, CommitmentEvent[]>>(new Map());
@@ -124,154 +155,106 @@ export default function CalendarScreen() {
     return out;
   }, [visibleMonth]);
 
-  const [yy, mm] = visibleMonth.split("-").map(Number);
+  const onSelect = useCallback(
+    (iso: string) => setSelectedDay((prev) => (prev === iso ? null : iso)),
+    [],
+  );
+
+  const changeMonth = (delta: number) => {
+    setSelectedDay(null);
+    setVisibleMonth((prev) => shiftMonth(prev, delta));
+  };
+
   const selectedEvents = selectedDay ? (byDate.get(selectedDay) ?? []) : [];
 
   return (
     <Screen>
       <Stack.Screen options={{ title: "Calendario" }} />
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingVertical: spacing[4] }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Mes anterior"
-            onPress={() => {
-              setSelectedDay(null);
-              setVisibleMonth((prev) => shiftMonth(prev, -1));
-            }}
-            style={{ minWidth: minTouchTarget, minHeight: minTouchTarget, alignItems: "center", justifyContent: "center" }}
-          >
-            <Icon name="chevron-back" size={22} color={colors.text.primary} />
-          </Pressable>
-          <Text variant="title2">
-            {MONTHS[mm - 1]} {yy}
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Mes siguiente"
-            onPress={() => {
-              setSelectedDay(null);
-              setVisibleMonth((prev) => shiftMonth(prev, 1));
-            }}
-            style={{ minWidth: minTouchTarget, minHeight: minTouchTarget, alignItems: "center", justifyContent: "center" }}
-          >
-            <Icon name="chevron-forward" size={22} color={colors.text.primary} />
-          </Pressable>
-        </View>
+        <MonthSwitcher
+          label={formatMonthLabel(visibleMonth)}
+          onPrev={() => changeMonth(-1)}
+          onNext={() => changeMonth(1)}
+        />
 
         {committedThisMonthCents > 0 ? (
-          <View>
-            <Text variant="caption" color="secondary">
-              Comprometido este mes
-            </Text>
-            <Text variant="display">{new Money(committedThisMonthCents).format()}</Text>
-          </View>
+          <HeroFigure
+            label="Comprometido este mes"
+            value={new Money(committedThisMonthCents).format()}
+          />
         ) : null}
 
-        <View style={{ flexDirection: "row" }}>
-          {WEEKDAYS.map((d, i) => (
-            <View key={i} style={{ flex: 1, alignItems: "center", paddingBottom: spacing[1] }}>
-              <Text variant="caption" color="tertiary">
-                {d}
+        <View>
+          <View style={{ flexDirection: "row" }}>
+            {WEEKDAYS.map((d, i) => (
+              <View key={i} style={{ flex: 1, alignItems: "center", paddingBottom: spacing[1] }}>
+                <Text variant="caption" color="secondary">
+                  {d}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+            {cells.map((iso, i) =>
+              iso ? (
+                <DayCell
+                  key={iso}
+                  iso={iso}
+                  events={byDate.get(iso) ?? []}
+                  isToday={iso === today}
+                  isSelected={iso === selectedDay}
+                  onSelect={onSelect}
+                />
+              ) : (
+                <View
+                  key={`blank-${i}`}
+                  style={{ width: `${100 / 7}%`, minHeight: minTouchTarget + spacing[1] }}
+                />
+              ),
+            )}
+          </View>
+        </View>
+
+        <View
+          accessibilityLabel="Leyenda de compromisos"
+          style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[3] }}
+        >
+          {KINDS.map((kind) => (
+            <View key={kind} style={{ flexDirection: "row", alignItems: "center", gap: spacing[1] }}>
+              <CommitmentMark kind={kind} />
+              <Text variant="caption" color="secondary">
+                {COMMITMENT_LABEL[kind]}
               </Text>
             </View>
           ))}
         </View>
 
-        <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-          {cells.map((iso, i) => {
-            if (!iso) return <View key={i} style={{ width: `${100 / 7}%`, minHeight: 52 }} />;
-            const dayNum = Number(iso.slice(8, 10));
-            const events = byDate.get(iso) ?? [];
-            const isToday = iso === today;
-            const isSelected = iso === selectedDay;
-            return (
-              <Pressable
-                key={i}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  events.length > 0
-                    ? `Día ${dayNum}, ${events.length} compromiso${events.length > 1 ? "s" : ""}`
-                    : `Día ${dayNum}`
-                }
-                accessibilityState={{ selected: isSelected }}
-                onPress={() => setSelectedDay(isSelected ? null : iso)}
-                style={{
-                  width: `${100 / 7}%`,
-                  minHeight: 52,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 3,
-                }}
-              >
-                <View
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: radii.full,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: isSelected
-                      ? colors.accent.bg
-                      : isToday
-                        ? colors.bg.sunken
-                        : "transparent",
-                  }}
-                >
-                  <Text
-                    variant="caption"
-                    style={{
-                      color: isSelected ? colors.accent.fg : colors.text.primary,
-                      fontWeight: isToday ? "700" : "400",
-                    }}
-                  >
-                    {dayNum}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: "row", gap: 3, height: DOT_SIZE }}>
-                  {events.slice(0, 3).map((e, j) => (
-                    <View key={j} style={dotStyle(e.kind, dotColor(e.kind, colors))} />
-                  ))}
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
-
         {selectedDay ? (
-          <View style={{ gap: spacing[2] }}>
-            <Text variant="bodyStrong">{selectedDay}</Text>
+          <View>
+            <Text variant="bodyStrong" accessibilityRole="header">
+              {formatDateLabel(selectedDay)}
+            </Text>
             {selectedEvents.length === 0 ? (
-              <Text variant="body" color="secondary">
+              <Text variant="body" color="secondary" style={{ paddingTop: spacing[2] }}>
                 Nada este día.
               </Text>
             ) : (
               selectedEvents.map((e, i) => (
                 <FadeIn key={i} delay={i * 30}>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      paddingVertical: spacing[2],
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.border.subtle,
-                    }}
-                  >
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[2] }}>
-                      <Icon name={DOT_ICON[e.kind]} size={18} />
-                      <Text variant="body">{e.label}</Text>
-                    </View>
-                    {e.amountCents !== null ? (
-                      <Text variant="bodyStrong">{new Money(e.amountCents).format()}</Text>
-                    ) : null}
-                  </View>
+                  <ListItem
+                    icon={KIND_ICON[e.kind]}
+                    title={e.label}
+                    subtitle={COMMITMENT_LABEL[e.kind]}
+                    trailing={e.amountCents !== null ? <MoneyText cents={e.amountCents} /> : undefined}
+                    last={i === selectedEvents.length - 1}
+                  />
                 </FadeIn>
               ))
             )}
           </View>
         ) : (
-          <Text variant="caption" color="tertiary">
+          <Text variant="caption" color="secondary">
             Tocá un día para ver sus compromisos.
           </Text>
         )}

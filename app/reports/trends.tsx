@@ -12,24 +12,47 @@ import { LineChart } from "react-native-gifted-charts/dist/LineChart";
 import { getTrends, type TrendsOut } from "@/data/api/reports";
 import { Money } from "@/domain/money";
 import { ReportsTabs } from "@/features/reports/ReportsTabs";
-import { Button, Card, Screen, Skeleton, Text } from "@/ui/primitives";
-import { useTokens } from "@/ui/tokens";
+import { formatMonthLabel } from "@/lib/dates";
+import {
+  Card,
+  Dot,
+  MoneyText,
+  Screen,
+  ScreenState,
+  SectionHeader,
+  SegmentedControl,
+  Skeleton,
+  Text,
+} from "@/ui/primitives";
+import { motion, useTokens } from "@/ui/tokens";
+import { useReducedMotion } from "@/ui/useReducedMotion";
 
-const RANGES = [
-  { value: 6, label: "6 meses" },
-  { value: 12, label: "12 meses" },
+type Range = "6" | "12";
+
+const RANGES: { value: Range; label: string }[] = [
+  { value: "6", label: "6 meses" },
+  { value: "12", label: "12 meses" },
 ];
 
 export default function ReportsTrendsScreen() {
-  const { spacing, colors } = useTokens();
-  const [months, setMonths] = useState(6);
+  const { spacing, colors, typography } = useTokens();
+  const reduceMotion = useReducedMotion();
+  const [range, setRange] = useState<Range>("6");
 
   const { data, isLoading, isError, refetch } = useQuery<TrendsOut>({
-    queryKey: ["reports", "trends", months],
-    queryFn: () => getTrends(months),
+    queryKey: ["reports", "trends", range],
+    queryFn: () => getTrends(Number(range)),
   });
 
   const periods = data?.periods ?? [];
+  const status = isLoading
+    ? "loading"
+    : isError || !data
+      ? "error"
+      : periods.length < 2
+        ? "empty"
+        : "data";
+  const axisText = { color: colors.text.secondary, fontSize: typography.micro.fontSize };
 
   return (
     <Screen>
@@ -39,112 +62,95 @@ export default function ReportsTrendsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <View style={{ flexDirection: "row", gap: spacing[2] }}>
-          {RANGES.map((r) => (
-            <Button
-              key={r.value}
-              label={r.label}
-              variant={months === r.value ? "primary" : "secondary"}
-              fullWidth={false}
-              onPress={() => setMonths(r.value)}
-            />
-          ))}
-        </View>
+        <SegmentedControl options={RANGES} value={range} onChange={setRange} />
 
-        {isLoading ? (
-          <Skeleton height={180} />
-        ) : isError || !data ? (
-          <View style={{ gap: spacing[3] }}>
-            <Text variant="body" color="secondary">
-              No se pudo cargar la tendencia.
-            </Text>
-            <Button label="Reintentar" onPress={() => void refetch()} />
+        <ScreenState
+          status={status}
+          loading={<Skeleton height={180} />}
+          error="No se pudo cargar la tendencia."
+          onRetry={() => void refetch()}
+          empty={{
+            message: "Hace falta más de un mes de historial para ver una tendencia.",
+            icon: "trending-up-outline",
+          }}
+        >
+          <View style={{ flexDirection: "row", gap: spacing[4] }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[1] }}>
+              <Dot color={colors.income.fg} />
+              <Text variant="caption" color="secondary">
+                Ingreso
+              </Text>
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[1] }}>
+              <Dot color={colors.expense.fg} />
+              <Text variant="caption" color="secondary">
+                Gasto
+              </Text>
+            </View>
           </View>
-        ) : periods.length < 2 ? (
-          <Text variant="body" color="secondary">
-            Hace falta más de un mes de historial para ver una tendencia.
+
+          <LineChart
+            isAnimated={!reduceMotion}
+            animationDuration={motion.duration.count}
+            data={periods.map((p) => ({ value: p.income_cents, label: p.period_start.slice(5, 7) }))}
+            data2={periods.map((p) => ({ value: p.expense_cents }))}
+            color={colors.income.fg}
+            color2={colors.expense.fg}
+            thickness={2}
+            thickness2={2}
+            curved
+            hideDataPoints
+            yAxisTextStyle={axisText}
+            xAxisLabelTextStyle={axisText}
+            formatYLabel={(label) => new Money(Math.round(Number(label))).formatCompact()}
+            noOfSections={4}
+            rulesColor={colors.border.subtle}
+            xAxisColor={colors.border.subtle}
+            yAxisColor={colors.border.subtle}
+            initialSpacing={8}
+          />
+
+          <View style={{ flexDirection: "row", gap: spacing[3] }}>
+            <Card style={{ flex: 1, gap: spacing[1] }}>
+              <Text variant="caption" color="secondary">
+                Promedio con aguinaldo/bono
+              </Text>
+              <MoneyText cents={data?.avg_income_with_extraordinary_cents ?? 0} />
+            </Card>
+            <Card style={{ flex: 1, gap: spacing[1] }}>
+              <Text variant="caption" color="secondary">
+                Promedio solo recurrente
+              </Text>
+              <MoneyText cents={data?.avg_income_recurring_cents ?? 0} />
+            </Card>
+          </View>
+          <Text variant="caption" color="secondary">
+            El segundo excluye ingresos extraordinarios (aguinaldo, bono 14) — es la base más
+            realista para presupuestar un mes normal.
           </Text>
-        ) : (
-          <>
-            <View style={{ flexDirection: "row", gap: spacing[4] }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[1] }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.income.fg }} />
-                <Text variant="caption" color="secondary">
-                  Ingreso
+
+          <View style={{ gap: spacing[1] }}>
+            <SectionHeader label="Mes a mes" />
+            {periods.map((p) => (
+              <View
+                key={p.period_start}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  gap: spacing[2],
+                  paddingVertical: spacing[1],
+                }}
+              >
+                <Text variant="body" style={{ flex: 1 }}>
+                  {formatMonthLabel(p.period_start)}
                 </Text>
+                <MoneyText cents={p.income_cents} kind="income" variant="caption" />
+                <MoneyText cents={p.expense_cents} kind="expense" variant="caption" />
               </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing[1] }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.expense.fg }} />
-                <Text variant="caption" color="secondary">
-                  Gasto
-                </Text>
-              </View>
-            </View>
-
-            <LineChart
-              data={periods.map((p) => ({ value: p.income_cents, label: p.period_start.slice(5, 7) }))}
-              data2={periods.map((p) => ({ value: p.expense_cents }))}
-              color={colors.income.fg}
-              color2={colors.expense.fg}
-              thickness={2}
-              thickness2={2}
-              curved
-              hideDataPoints
-              yAxisTextStyle={{ color: colors.text.tertiary, fontSize: 10 }}
-              xAxisLabelTextStyle={{ color: colors.text.tertiary, fontSize: 10 }}
-              formatYLabel={(label) => new Money(Math.round(Number(label))).formatCompact()}
-              noOfSections={4}
-              rulesColor={colors.border.subtle}
-              xAxisColor={colors.border.subtle}
-              yAxisColor={colors.border.subtle}
-              initialSpacing={8}
-            />
-
-            <View style={{ flexDirection: "row", gap: spacing[3] }}>
-              <Card style={{ flex: 1, gap: spacing[1] }}>
-                <Text variant="caption" color="secondary">
-                  Promedio con aguinaldo/bono
-                </Text>
-                <Text variant="bodyStrong">
-                  {new Money(data.avg_income_with_extraordinary_cents).format()}
-                </Text>
-              </Card>
-              <Card style={{ flex: 1, gap: spacing[1] }}>
-                <Text variant="caption" color="secondary">
-                  Promedio solo recurrente
-                </Text>
-                <Text variant="bodyStrong">
-                  {new Money(data.avg_income_recurring_cents).format()}
-                </Text>
-              </Card>
-            </View>
-            <Text variant="caption" color="tertiary">
-              El segundo excluye ingresos extraordinarios (aguinaldo, bono 14) — es la base más
-              realista para presupuestar un mes normal.
-            </Text>
-
-            <View style={{ gap: spacing[1] }}>
-              {periods.map((p) => (
-                <View
-                  key={p.period_start}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    paddingVertical: spacing[1],
-                  }}
-                >
-                  <Text variant="body">{p.period_start.slice(0, 7)}</Text>
-                  <Text variant="caption" style={{ color: colors.income.fg }}>
-                    {new Money(p.income_cents).format()}
-                  </Text>
-                  <Text variant="caption" style={{ color: colors.expense.fg }}>
-                    {new Money(p.expense_cents).format()}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </>
-        )}
+            ))}
+          </View>
+        </ScreenState>
       </ScrollView>
     </Screen>
   );

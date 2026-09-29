@@ -4,12 +4,26 @@ import { Stack } from "expo-router";
 
 import { ReportsTabs } from "@/features/reports/ReportsTabs";
 import { useComparison } from "@/features/reports/useComparison";
-import { Money } from "@/domain/money";
-import { todayIso } from "@/lib/dates";
-import { Button, Card, Chip, Screen, Skeleton, Text } from "@/ui/primitives";
+import { formatMonthLabel, todayIso } from "@/lib/dates";
+import {
+  Card,
+  ListItem,
+  MoneyText,
+  Screen,
+  ScreenState,
+  SectionHeader,
+  SegmentedControl,
+  Skeleton,
+  Text,
+} from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 type Preset = "prev_month" | "prev_year";
+
+const PRESETS: { value: Preset; label: string }[] = [
+  { value: "prev_month", label: "vs. mes anterior" },
+  { value: "prev_year", label: "vs. año pasado" },
+];
 
 function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split("-").map(Number);
@@ -21,10 +35,11 @@ function currentMonthString(): string {
   return todayIso().slice(0, 7);
 }
 
-function monthLabel(month: string): string {
-  const [y, m] = month.split("-").map(Number);
-  const label = new Date(y, m - 1, 1).toLocaleDateString("es-GT", { month: "long", year: "numeric" });
-  return label.charAt(0).toUpperCase() + label.slice(1);
+/** Con signo explícito (U+2212 para el menos): el cambio nunca depende solo del color. */
+function formatDelta(percent: number | null): string {
+  if (percent === null) return "sin datos el mes base";
+  if (percent === 0) return "0 %";
+  return `${percent > 0 ? "+" : "−"}${Math.abs(percent)} %`;
 }
 
 export default function ReportsComparisonScreen() {
@@ -36,15 +51,15 @@ export default function ReportsComparisonScreen() {
 
   const { data, isLoading, isError, refetch } = useComparison(reference, current);
 
-  function deltaColor(percent: number | null): string {
-    if (percent === null) return colors.text.secondary;
-    return percent > 0 ? colors.expense.fg : colors.income.fg;
+  /** Subir un gasto es malo (rojo); subir un ingreso es bueno (verde). */
+  function deltaColor(percent: number | null, kind: "income" | "expense"): string {
+    if (percent === null || percent === 0) return colors.text.secondary;
+    const up = percent > 0;
+    const good = kind === "income" ? up : !up;
+    return good ? colors.income.fg : colors.expense.fg;
   }
 
-  function formatDelta(percent: number | null): string {
-    if (percent === null) return "sin datos el mes base";
-    return `${percent > 0 ? "+" : ""}${percent}%`;
-  }
+  const status = isLoading ? "loading" : isError || !data ? "error" : "data";
 
   return (
     <Screen>
@@ -54,95 +69,77 @@ export default function ReportsComparisonScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ gap: spacing[4], paddingBottom: spacing[8] }}>
-        <View style={{ flexDirection: "row", gap: spacing[2] }}>
-          <Chip
-            label="vs. mes anterior"
-            selected={preset === "prev_month"}
-            onPress={() => setPreset("prev_month")}
-          />
-          <Chip
-            label="vs. mismo mes año pasado"
-            selected={preset === "prev_year"}
-            onPress={() => setPreset("prev_year")}
-          />
-        </View>
+        <SegmentedControl options={PRESETS} value={preset} onChange={setPreset} />
 
-        {isLoading ? (
-          <Skeleton height={180} />
-        ) : isError || !data ? (
-          <View style={{ gap: spacing[3] }}>
-            <Text variant="body" color="secondary">
-              No se pudo cargar la comparación.
-            </Text>
-            <Button label="Reintentar" onPress={() => void refetch()} />
-          </View>
-        ) : (
-          <>
-            <Text variant="caption" color="secondary">
-              {monthLabel(data.b_month)} vs. {monthLabel(data.a_month)}
-            </Text>
-
-            <View style={{ flexDirection: "row", gap: spacing[3] }}>
-              <Card style={{ flex: 1, gap: spacing[1] }}>
-                <Text variant="caption" color="secondary">
-                  Ingresos
-                </Text>
-                <Text variant="bodyStrong">{new Money(data.b_income_cents).format()}</Text>
-                <Text variant="caption" style={{ color: deltaColor(data.income_change_percent) }}>
-                  {formatDelta(data.income_change_percent)}
-                </Text>
-              </Card>
-              <Card style={{ flex: 1, gap: spacing[1] }}>
-                <Text variant="caption" color="secondary">
-                  Gastos
-                </Text>
-                <Text variant="bodyStrong">{new Money(data.b_expense_cents).format()}</Text>
-                <Text
-                  variant="caption"
-                  style={{ color: deltaColor(data.expense_change_percent) }}
-                >
-                  {formatDelta(data.expense_change_percent)}
-                </Text>
-              </Card>
-            </View>
-
-            {data.categories.length === 0 ? (
-              <Text variant="body" color="secondary">
-                Sin gastos en ninguno de los dos meses.
+        <ScreenState
+          status={status}
+          loading={<Skeleton height={180} />}
+          error="No se pudo cargar la comparación."
+          onRetry={() => void refetch()}
+        >
+          {data ? (
+            <>
+              <Text variant="caption" color="secondary">
+                {formatMonthLabel(data.b_month)} vs. {formatMonthLabel(data.a_month)}
               </Text>
-            ) : (
-              <View style={{ gap: spacing[1] }}>
-                <Text variant="caption" color="secondary">
-                  POR CATEGORÍA
-                </Text>
-                {data.categories.map((item) => (
-                  <View
-                    key={item.category_id}
-                    style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      paddingVertical: spacing[2],
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.border.subtle,
-                    }}
+
+              <View style={{ flexDirection: "row", gap: spacing[3] }}>
+                <Card style={{ flex: 1, gap: spacing[1] }}>
+                  <Text variant="caption" color="secondary">
+                    Ingresos
+                  </Text>
+                  <MoneyText cents={data.b_income_cents} kind="income" />
+                  <Text
+                    variant="caption"
+                    style={{ color: deltaColor(data.income_change_percent, "income") }}
                   >
-                    <Text variant="body" style={{ flex: 1 }}>
-                      {item.category_name}
-                    </Text>
-                    <Text variant="bodyStrong">{new Money(item.b_amount_cents).format()}</Text>
-                    <Text
-                      variant="caption"
-                      style={{ color: deltaColor(item.percent_change), marginLeft: spacing[2] }}
-                    >
-                      {formatDelta(item.percent_change)}
-                    </Text>
-                  </View>
-                ))}
+                    {formatDelta(data.income_change_percent)}
+                  </Text>
+                </Card>
+                <Card style={{ flex: 1, gap: spacing[1] }}>
+                  <Text variant="caption" color="secondary">
+                    Gastos
+                  </Text>
+                  <MoneyText cents={data.b_expense_cents} kind="expense" />
+                  <Text
+                    variant="caption"
+                    style={{ color: deltaColor(data.expense_change_percent, "expense") }}
+                  >
+                    {formatDelta(data.expense_change_percent)}
+                  </Text>
+                </Card>
               </View>
-            )}
-          </>
-        )}
+
+              {data.categories.length === 0 ? (
+                <Text variant="body" color="secondary">
+                  Sin gastos en ninguno de los dos meses.
+                </Text>
+              ) : (
+                <View>
+                  <SectionHeader label="Por categoría" />
+                  {data.categories.map((item, index) => (
+                    <ListItem
+                      key={item.category_id}
+                      title={item.category_name}
+                      trailing={
+                        <View style={{ alignItems: "flex-end" }}>
+                          <MoneyText cents={item.b_amount_cents} kind="expense" />
+                          <Text
+                            variant="caption"
+                            style={{ color: deltaColor(item.percent_change, "expense") }}
+                          >
+                            {formatDelta(item.percent_change)}
+                          </Text>
+                        </View>
+                      }
+                      last={index === data.categories.length - 1}
+                    />
+                  ))}
+                </View>
+              )}
+            </>
+          ) : null}
+        </ScreenState>
       </ScrollView>
     </Screen>
   );
