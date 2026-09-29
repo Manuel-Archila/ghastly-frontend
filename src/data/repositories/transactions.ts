@@ -4,7 +4,7 @@ import { db } from "@/data/db/client";
 import { accounts, categories, outboxMutations, transactions } from "@/data/db/schema";
 import { signedDelta, type AccountType } from "@/domain/balances";
 import { Money } from "@/domain/money";
-import { planTransactionRestore } from "@/domain/undo";
+import { planTransactionRestore, type RestoreOutcome } from "@/domain/undo";
 import { uuidv7 } from "@/lib/uuid";
 
 export type Transaction = typeof transactions.$inferSelect;
@@ -336,8 +336,6 @@ export async function deleteTransactionLocally(id: string): Promise<void> {
     });
   });
 }
-
-export type RestoreOutcome = "restored" | "recreated" | "impossible";
 
 /**
  * "Deshacer" de un borrado (ver `domain/undo.ts` para el porqué de los dos

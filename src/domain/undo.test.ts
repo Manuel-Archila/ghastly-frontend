@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { planTransactionRestore, type RestorableTransaction } from "./undo";
+import { planRestore, planTransactionRestore, type RestorableTransaction } from "./undo";
 
 function txn(over: Partial<RestorableTransaction> = {}): RestorableTransaction {
   return {
@@ -40,5 +40,30 @@ describe("planTransactionRestore", () => {
     expect(planTransactionRestore(txn({ receivableId: "r1" }), false)).toBe("impossible");
     expect(planTransactionRestore(txn({ transferGroupId: "g1" }), false)).toBe("impossible");
     expect(planTransactionRestore(txn({ refundOfId: "t1" }), false)).toBe("impossible");
+  });
+});
+
+describe("planRestore", () => {
+  const deleted = "2026-09-29T20:00:00.000Z";
+
+  it("is idempotent when the entity is not deleted", () => {
+    expect(planRestore({ deletedAt: null, hasPendingDelete: false, canRecreate: true })).toBe(
+      "already-active",
+    );
+  });
+
+  it("cancels a pending delete before anything else", () => {
+    expect(planRestore({ deletedAt: deleted, hasPendingDelete: true, canRecreate: false })).toBe(
+      "cancel-pending-delete",
+    );
+  });
+
+  it("recreates only when nothing else depends on the entity", () => {
+    expect(planRestore({ deletedAt: deleted, hasPendingDelete: false, canRecreate: true })).toBe(
+      "recreate",
+    );
+    expect(planRestore({ deletedAt: deleted, hasPendingDelete: false, canRecreate: false })).toBe(
+      "impossible",
+    );
   });
 });

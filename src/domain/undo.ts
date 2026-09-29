@@ -13,6 +13,23 @@
  */
 export type RestorePlan = "already-active" | "cancel-pending-delete" | "recreate" | "impossible";
 
+/** Resultado de un "Deshacer" ya ejecutado. */
+export type RestoreOutcome = "restored" | "recreated" | "impossible";
+
+/**
+ * Decisión genérica, sin saber de qué entidad se trata. `canRecreate` dice si
+ * volver a crearla como una nueva es correcto (no hay nada más ligado a ella).
+ */
+export function planRestore(input: {
+  deletedAt: string | null;
+  hasPendingDelete: boolean;
+  canRecreate: boolean;
+}): RestorePlan {
+  if (!input.deletedAt) return "already-active";
+  if (input.hasPendingDelete) return "cancel-pending-delete";
+  return input.canRecreate ? "recreate" : "impossible";
+}
+
 export interface RestorableTransaction {
   deletedAt: string | null;
   kind: string;
@@ -26,13 +43,11 @@ export function planTransactionRestore(
   txn: RestorableTransaction,
   hasPendingDelete: boolean,
 ): RestorePlan {
-  if (!txn.deletedAt) return "already-active";
-  if (hasPendingDelete) return "cancel-pending-delete";
   const linked =
     txn.kind === "transfer" ||
     txn.installmentId !== null ||
     txn.receivableId !== null ||
     txn.transferGroupId !== null ||
     txn.refundOfId !== null;
-  return linked ? "impossible" : "recreate";
+  return planRestore({ deletedAt: txn.deletedAt, hasPendingDelete, canRecreate: !linked });
 }

@@ -8,7 +8,6 @@ import {
   createBudgetLocally,
   getActiveBudget,
   listBudgetItems,
-  removeBudgetItemLocally,
   setBudgetRolloverLocally,
   upsertBudgetItemLocally,
   type Budget,
@@ -17,9 +16,9 @@ import { effectiveParents, summarizeHierarchy } from "@/domain/budget";
 import { flattenTree } from "@/domain/categoryTree";
 import { parseCentsFromInput, Money } from "@/domain/money";
 import { nestByParent } from "@/features/budget/nest";
+import { removeBudgetItemWithUndo } from "@/features/budget/remove-with-undo";
 import { triggerSync } from "@/features/sync/sync-manager";
-import { confirmDestructive } from "@/ui/confirm";
-import { Button, Chip, Icon, Input, Notice, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, Icon, Input, Notice, Screen, SectionHeader, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 /** Fila del editor: un ítem existente (`itemId`) o uno recién agregado. */
@@ -112,16 +111,17 @@ export default function BudgetEditScreen() {
   }
 
   async function onRemove(row: Row) {
-    const label = catById.get(row.categoryId)?.name ?? "esta categoría";
+    const label = catById.get(row.categoryId)?.name ?? "Categoría";
     if (row.itemId) {
-      const ok = await confirmDestructive(
-        `Quitar ${label}`,
-        "Los gastos ya registrados no se tocan: quedarán como “sin presupuesto”.",
-        "Quitar",
+      // Sin diálogo: se quita ya y el aviso ofrece Deshacer. Si se deshace, la
+      // fila vuelve con lo que se estaba escribiendo.
+      await removeBudgetItemWithUndo(row.itemId, label, (restoredId) =>
+        setRows((prev) =>
+          prev.some((r) => r.categoryId === row.categoryId)
+            ? prev
+            : [...prev, { ...row, key: restoredId, itemId: restoredId }],
+        ),
       );
-      if (!ok) return;
-      await removeBudgetItemLocally(row.itemId);
-      triggerSync();
     }
     setRows((prev) => prev.filter((r) => r.key !== row.key));
   }
@@ -173,13 +173,21 @@ export default function BudgetEditScreen() {
               Lo que sobra en una categoría pasa al mes siguiente.
             </Text>
           </View>
-          <Switch value={rollover} onValueChange={setRollover} />
+          <Switch
+            accessibilityLabel="Rollover"
+            value={rollover}
+            onValueChange={setRollover}
+            trackColor={{ false: colors.border.control, true: colors.accent.bg }}
+          />
         </View>
 
         <View style={{ gap: spacing[3] }}>
-          <Text variant="caption" color="secondary">
-            EN EL PRESUPUESTO
-          </Text>
+          <SectionHeader label="En el presupuesto" />
+          {rows.some((r) => r.itemId) ? (
+            <Text variant="caption" color="secondary">
+              Quitar una categoría no borra sus gastos: quedan como “sin presupuesto”.
+            </Text>
+          ) : null}
 
           {loaded && rows.length === 0 ? (
             <Text variant="body" color="secondary">
@@ -251,9 +259,7 @@ export default function BudgetEditScreen() {
         </View>
 
         <View style={{ gap: spacing[3] }}>
-          <Text variant="caption" color="secondary">
-            AGREGAR CATEGORÍA
-          </Text>
+          <SectionHeader label="Agregar categoría" />
 
           {categories.length === 0 ? (
             <View style={{ gap: spacing[2] }}>
