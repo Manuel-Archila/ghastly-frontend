@@ -1,10 +1,8 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 
 import { createAccountLocally } from "@/data/repositories/accounts";
-import { listCategories } from "@/data/repositories/categories";
-import { seedCategoriesFromServer } from "@/features/categories/seed";
 import { triggerSync } from "@/features/sync/sync-manager";
 import { parseCentsFromInput } from "@/domain/money";
 import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
@@ -28,24 +26,8 @@ export default function OnboardingScreen() {
   const { spacing, colors } = useTokens();
 
   const [step, setStep] = useState<1 | 2>(1);
-  const [seeding, setSeeding] = useState(false);
-  const [seeded, setSeeded] = useState(false);
   const [drafts, setDrafts] = useState<AccountDraft[]>([{ name: "", type: "checking", balance: "" }]);
   const [busy, setBusy] = useState(false);
-
-  const onSeed = useCallback(async () => {
-    setSeeding(true);
-    try {
-      await seedCategoriesFromServer();
-      setSeeded(true);
-    } catch {
-      // ya sembradas / sin conexión: seguimos igual
-      const existing = await listCategories();
-      setSeeded(existing.length > 0);
-    } finally {
-      setSeeding(false);
-    }
-  }, []);
 
   function updateDraft(i: number, patch: Partial<AccountDraft>) {
     setDrafts((prev) => prev.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
@@ -74,13 +56,6 @@ export default function OnboardingScreen() {
             Registrá un gasto en menos de 10 segundos. Empecemos con lo básico.
           </Text>
         </View>
-
-        <Button
-          label={seeding ? "Trayendo…" : seeded ? "Categorías listas ✓" : "Traer las categorías base"}
-          variant={seeded ? "secondary" : "primary"}
-          onPress={onSeed}
-          disabled={seeding || seeded}
-        />
 
         <Button label="Siguiente: tus cuentas" onPress={() => setStep(2)} />
         <Button label="Saltar por ahora" variant="ghost" onPress={() => router.replace("/(tabs)")} />
