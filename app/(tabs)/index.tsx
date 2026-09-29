@@ -27,7 +27,7 @@ const UPCOMING_ICON: Record<UpcomingSourceType, keyof typeof Ionicons.glyphMap> 
 };
 
 function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+  return todayIso().slice(0, 7);
 }
 
 function monthLabel(month: string): string {

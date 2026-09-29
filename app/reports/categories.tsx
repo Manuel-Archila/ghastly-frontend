@@ -10,6 +10,7 @@ import { ReportsTabs } from "@/features/reports/ReportsTabs";
 import { useCategoryBreakdown } from "@/features/reports/useCategoryBreakdown";
 import { categoryColorFor } from "@/lib/categoryColor";
 import { Money } from "@/domain/money";
+import { todayIso } from "@/lib/dates";
 import { Button, Chip, FadeIn, Icon, Screen, Skeleton, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
@@ -28,7 +29,7 @@ function monthBounds(month: string): { from: string; to: string } {
 }
 
 function currentMonthString(): string {
-  return new Date().toISOString().slice(0, 7);
+  return todayIso().slice(0, 7);
 }
 
 export default function ReportsCategoriesScreen() {

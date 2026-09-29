@@ -13,11 +13,12 @@ import { Money, parseCentsFromInput } from "@/domain/money";
 import type { TemplateOut } from "@/data/api/templates";
 import { triggerSync } from "@/features/sync/sync-manager";
 import { loadCachedTemplates, refreshTemplateCache } from "@/lib/templateCache";
+import { todayIso } from "@/lib/dates";
 import { Button, Chip, Input, KeypadNumeric, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10);
+  return todayIso();
 }
 
 /**

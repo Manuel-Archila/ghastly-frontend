@@ -5,11 +5,12 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { computeBudgetCurrent, type BudgetCurrent } from "@/data/repositories/budgets";
 import { Money } from "@/domain/money";
 import { nestByParent } from "@/features/budget/nest";
+import { todayIso } from "@/lib/dates";
 import { Button, FadeIn, Notice, ProgressBar, Screen, Text, semaphoreColor } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+  return todayIso().slice(0, 7);
 }
 
 export default function BudgetScreen() {

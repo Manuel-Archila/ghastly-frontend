@@ -5,6 +5,7 @@ import { Stack } from "expo-router";
 import { ReportsTabs } from "@/features/reports/ReportsTabs";
 import { useComparison } from "@/features/reports/useComparison";
 import { Money } from "@/domain/money";
+import { todayIso } from "@/lib/dates";
 import { Button, Card, Chip, Screen, Skeleton, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
@@ -17,7 +18,7 @@ function shiftMonth(month: string, delta: number): string {
 }
 
 function currentMonthString(): string {
-  return new Date().toISOString().slice(0, 7);
+  return todayIso().slice(0, 7);
 }
 
 function monthLabel(month: string): string {

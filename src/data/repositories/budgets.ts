@@ -11,6 +11,7 @@ import {
   summarizeHierarchy,
 } from "@/domain/budget";
 import { uuidv7 } from "@/lib/uuid";
+import { todayIso } from "@/lib/dates";
 
 export type Budget = typeof budgets.$inferSelect;
 
@@ -146,7 +147,7 @@ function monthBounds(month: string): { start: string; end: string; days: number 
 }
 
 function daysElapsed(month: string, days: number): number {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIso();
   const currentMonth = today.slice(0, 7);
   if (currentMonth < month) return 0;
   if (currentMonth > month) return days;
