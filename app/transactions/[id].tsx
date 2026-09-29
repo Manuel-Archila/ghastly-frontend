@@ -4,11 +4,11 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-rou
 
 import {
   createRefundLocally,
-  deleteTransactionLocally,
   getTransaction,
   type TransactionListItem,
 } from "@/data/repositories/transactions";
 import { triggerSync } from "@/features/sync/sync-manager";
+import { deleteTransactionWithUndo } from "@/features/transactions/delete-with-undo";
 import { formatForKind, Money } from "@/domain/money";
 import { formatDateLabel } from "@/lib/dates";
 import { Button, Screen, ScreenState, Text } from "@/ui/primitives";
@@ -60,8 +60,7 @@ export default function TransactionDetailScreen() {
     kind === "transfer" ? colors.transfer.fg : kind === "income" ? colors.income.fg : colors.expense.fg;
 
   async function onDelete() {
-    await deleteTransactionLocally(id);
-    triggerSync();
+    await deleteTransactionWithUndo(id);
     router.back();
   }
 

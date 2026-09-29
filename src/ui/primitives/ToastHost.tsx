@@ -21,15 +21,16 @@ const EXITING = FadeOut.duration(duration.press);
 export function ToastHost() {
   const toast = useToastStore((s) => s.current);
   const dismiss = useToastStore((s) => s.dismiss);
+  const expire = useToastStore((s) => s.expire);
   const { colors, spacing, radii, minTouchTarget, opacity, stroke } = useTokens();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!toast) return;
-    const timer = setTimeout(dismiss, toast.durationMs);
+    const timer = setTimeout(expire, toast.durationMs);
     return () => clearTimeout(timer);
-  }, [toast, dismiss]);
+  }, [toast, expire]);
 
   const entering = useMemo(
     () =>

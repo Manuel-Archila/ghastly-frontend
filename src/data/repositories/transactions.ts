@@ -4,6 +4,7 @@ import { db } from "@/data/db/client";
 import { accounts, categories, outboxMutations, transactions } from "@/data/db/schema";
 import { signedDelta, type AccountType } from "@/domain/balances";
 import { Money } from "@/domain/money";
+import { planTransactionRestore } from "@/domain/undo";
 import { uuidv7 } from "@/lib/uuid";
 
 export type Transaction = typeof transactions.$inferSelect;
@@ -334,6 +335,81 @@ export async function deleteTransactionLocally(id: string): Promise<void> {
       createdAt: now,
     });
   });
+}
+
+export type RestoreOutcome = "restored" | "recreated" | "impossible";
+
+/**
+ * "Deshacer" de un borrado (ver `domain/undo.ts` para el porqué de los dos
+ * caminos). Si el borrado sigue en el outbox se cancela y el movimiento vuelve
+ * con el mismo id; si ya se subió, se recrea como uno nuevo — solo cuando no
+ * estaba ligado a una transferencia, cuota, cobro o reembolso.
+ */
+export async function restoreDeletedTransactionLocally(id: string): Promise<RestoreOutcome> {
+  const now = new Date().toISOString();
+
+  const { outcome, recreate } = await db.transaction(
+    async (tx): Promise<{ outcome: RestoreOutcome; recreate: CreateTransactionInput | null }> => {
+      const [txn] = await tx.select().from(transactions).where(eq(transactions.id, id)).limit(1);
+      if (!txn) return { outcome: "impossible", recreate: null };
+
+      const [pending] = await tx
+        .select()
+        .from(outboxMutations)
+        .where(
+          and(
+            eq(outboxMutations.entityType, "transaction"),
+            eq(outboxMutations.entityId, id),
+            eq(outboxMutations.op, "delete"),
+          ),
+        )
+        .limit(1);
+
+      const plan = planTransactionRestore(txn, Boolean(pending));
+      if (plan === "already-active") return { outcome: "restored", recreate: null };
+      if (plan === "impossible") return { outcome: "impossible", recreate: null };
+
+      if (plan === "cancel-pending-delete") {
+        await tx
+          .delete(outboxMutations)
+          .where(eq(outboxMutations.clientMutationId, pending.clientMutationId));
+        await tx
+          .update(transactions)
+          .set({ deletedAt: null, updatedAt: now })
+          .where(eq(transactions.id, id));
+        if (txn.kind !== "transfer") {
+          // Simétrico al borrado: vuelve a contar en el saldo optimista.
+          await applyBalanceDelta(
+            tx,
+            txn.accountId,
+            txn.kind as "expense" | "income",
+            txn.amountCents,
+            null,
+            now,
+          );
+        }
+        return { outcome: "restored", recreate: null };
+      }
+
+      return {
+        outcome: "recreated",
+        recreate: {
+          accountId: txn.accountId,
+          categoryId: txn.categoryId,
+          kind: txn.kind as "expense" | "income",
+          amountCents: txn.amountCents,
+          date: txn.date,
+          description: txn.description,
+          currency: txn.currency,
+          fxRate: txn.fxRate ?? undefined,
+        },
+      };
+    },
+  );
+
+  // Fuera de la transacción: `createTransactionLocally` abre la suya.
+  if (recreate) await createTransactionLocally(recreate);
+  return outcome;
 }
 
 export interface TransactionFilters {
