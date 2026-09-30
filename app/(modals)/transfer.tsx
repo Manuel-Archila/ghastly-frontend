@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 
+import { errorMessageFor } from "@/data/api/error-messages";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { createTransferLocally } from "@/data/repositories/transactions";
 import { triggerSync } from "@/features/sync/sync-manager";
@@ -23,7 +24,9 @@ export default function TransferScreen() {
   const [fromId, setFromId] = useState<string | null>(null);
   const [toId, setToId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
+  const [toAmount, setToAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void listAccounts().then((accs) => {
@@ -34,21 +37,40 @@ export default function TransferScreen() {
   }, []);
 
   const cents = parseCentsFromInput(amount);
-  const toIsCard = accounts.find((a) => a.id === toId)?.type === "credit_card";
-  const canSave = cents !== null && fromId !== null && toId !== null && fromId !== toId && !busy;
+  const fromAccount = accounts.find((a) => a.id === fromId);
+  const toAccount = accounts.find((a) => a.id === toId);
+  const toIsCard = toAccount?.type === "credit_card";
+  // Sin esto, transferir Q10 a una cuenta en dólares los acreditaba como
+  // $10 — ninguna conversión (mismo bug que ya se arregló en el backend).
+  const needsToAmount = !!fromAccount && !!toAccount && fromAccount.currency !== toAccount.currency;
+  const toCents = needsToAmount ? parseCentsFromInput(toAmount) : cents;
+  const canSave =
+    cents !== null &&
+    toCents !== null &&
+    fromId !== null &&
+    toId !== null &&
+    fromId !== toId &&
+    !busy;
 
   async function onSave() {
-    if (cents === null || fromId === null || toId === null) return;
+    if (cents === null || toCents === null || fromId === null || toId === null) return;
     setBusy(true);
-    await createTransferLocally({
-      fromAccountId: fromId,
-      toAccountId: toId,
-      amountCents: cents,
-      date: today(),
-      description: toIsCard ? "Pago de tarjeta" : null,
-    });
-    triggerSync();
-    router.back();
+    setError(null);
+    try {
+      await createTransferLocally({
+        fromAccountId: fromId,
+        toAccountId: toId,
+        amountCents: cents,
+        toAmountCents: needsToAmount ? toCents : undefined,
+        date: today(),
+        description: toIsCard ? "Pago de tarjeta" : null,
+      });
+      triggerSync();
+      router.back();
+    } catch (e) {
+      setError(errorMessageFor(e, "No se pudo transferir."));
+      setBusy(false);
+    }
   }
 
   return (
@@ -67,11 +89,19 @@ export default function TransferScreen() {
 
         <View style={{ alignItems: "center", paddingVertical: spacing[3] }}>
           <Text variant="display" style={{ color: colors.transfer.fg }}>
-            {cents !== null ? `${new Money(cents).format()} →` : "Q 0.00 →"}
+            {cents !== null
+              ? `${new Money(cents, fromAccount?.currency).format()} →`
+              : `${new Money(0, fromAccount?.currency).format()} →`}
           </Text>
+          {needsToAmount && toCents !== null ? (
+            <Text variant="title2" style={{ color: colors.transfer.fg }}>
+              {new Money(toCents, toAccount?.currency).format()}
+            </Text>
+          ) : null}
         </View>
 
         <Input
+          label={needsToAmount ? `Sale de ${fromAccount?.currency}` : undefined}
           value={amount}
           onChangeText={setAmount}
           keyboardType="decimal-pad"
@@ -79,6 +109,17 @@ export default function TransferScreen() {
           placeholder="Monto"
           style={{ textAlign: "center" }}
         />
+
+        {needsToAmount ? (
+          <Input
+            label={`¿Cuánto llega en ${toAccount?.currency}?`}
+            value={toAmount}
+            onChangeText={setToAmount}
+            keyboardType="decimal-pad"
+            placeholder="0.00"
+            style={{ textAlign: "center" }}
+          />
+        ) : null}
 
         <View style={{ gap: spacing[2] }}>
           <Text variant="caption" color="secondary">
@@ -105,6 +146,12 @@ export default function TransferScreen() {
         {fromId === toId ? (
           <Text variant="caption" style={{ color: colors.danger.fg }}>
             La cuenta origen y destino no pueden ser la misma.
+          </Text>
+        ) : null}
+
+        {error ? (
+          <Text variant="caption" style={{ color: colors.danger.fg }}>
+            {error}
           </Text>
         ) : null}
 
