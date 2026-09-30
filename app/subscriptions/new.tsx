@@ -11,6 +11,7 @@ import { frequencyLabel } from "@/features/subscriptions/frequency-label";
 import { addDays, todayIso } from "@/lib/dates";
 import { Chip, ChipGroup, DateField, FormScreen, Input, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
+import { accountLabel } from "@/features/accounts/account-label";
 
 const FREQUENCIES = ["monthly", "weekly", "quarterly", "yearly"] as const;
 
@@ -155,7 +156,7 @@ export default function NewSubscriptionScreen() {
             {accounts.map((a) => (
               <Chip
                 key={a.id}
-                label={a.name}
+                label={accountLabel(a)}
                 selected={accountId === a.id}
                 onPress={() => setAccountId(a.id)}
               />

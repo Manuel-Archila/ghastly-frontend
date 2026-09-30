@@ -31,6 +31,7 @@ import {
 } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 import { useCountUp } from "@/ui/useCountUp";
+import { accountLabel } from "@/features/accounts/account-label";
 
 const LIABILITY_TYPES = new Set(["credit_card", "loan"]);
 
@@ -268,7 +269,7 @@ function AccountCard({ account }: { account: Account }) {
   const card = (
     <Card style={{ gap: spacing[1], minWidth: spacing[10] * 4 }}>
       <Text variant="body" numberOfLines={1}>
-        {account.name}
+        {accountLabel(account)}
       </Text>
       <MoneyText cents={account.currentBalanceCents} currency={account.currency} />
       {isLiability ? (

@@ -1,18 +1,17 @@
 /**
- * Un gasto no puede existir sin categoría. Espejo de `domain/category_rule.py`
- * del backend, que la exige en todos sus caminos (transacción, plantilla, regla
- * recurrente, plan de cuotas y `/sync/push`).
+ * Un gasto o un ingreso no pueden existir sin categoría. Espejo de
+ * `domain/category_rule.py` del backend, que la exige en todos sus caminos
+ * (transacción, plantilla, regla recurrente, plan de cuotas y `/sync/push`).
  *
- * Los ingresos (un cobro, un reembolso) y las transferencias pueden no tener
- * categoría. Vale para todo lo que termina siendo un gasto, no solo para la
- * captura rápida.
+ * Solo las transferencias entre cuentas propias pueden no tenerla. Vale para todo
+ * lo que termina siendo un gasto o un ingreso, no solo para la captura rápida.
  */
 
 export function requiresCategory(kind: string): boolean {
-  return kind === "expense";
+  return kind === "expense" || kind === "income";
 }
 
-/** True si es un gasto y no trae categoría. */
+/** True si es un gasto o un ingreso y no trae categoría. */
 export function isMissingRequiredCategory(kind: string, categoryId: string | null | undefined): boolean {
   return requiresCategory(kind) && !categoryId;
 }
@@ -22,12 +21,12 @@ export class CategoryRequiredError extends Error {
   readonly code = "CATEGORY_REQUIRED";
 
   constructor() {
-    super("Un gasto necesita una categoría.");
+    super("Este movimiento necesita una categoría.");
     this.name = "CategoryRequiredError";
   }
 }
 
-/** Lanza `CategoryRequiredError` si un gasto no trae categoría. */
+/** Lanza `CategoryRequiredError` si un gasto o un ingreso no traen categoría. */
 export function assertCategoryPresent(kind: string, categoryId: string | null | undefined): void {
   if (isMissingRequiredCategory(kind, categoryId)) throw new CategoryRequiredError();
 }

@@ -6,6 +6,7 @@ import { errorMessageFor } from "@/data/api/error-messages";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { parseCentsFromInput } from "@/domain/money";
 import { Chip, ChipGroup, FormScreen, Input } from "@/ui/primitives";
+import { accountLabel } from "@/features/accounts/account-label";
 
 export default function NewGoalScreen() {
   const router = useRouter();
@@ -51,7 +52,7 @@ export default function NewGoalScreen() {
           {accounts.map((a) => (
             <Chip
               key={a.id}
-              label={a.name}
+              label={accountLabel(a)}
               selected={linkedId === a.id}
               onPress={() => setLinkedId(linkedId === a.id ? null : a.id)}
             />

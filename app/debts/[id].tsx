@@ -26,6 +26,7 @@ import {
   Text,
 } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
+import { accountLabel } from "@/features/accounts/account-label";
 
 interface AmortRow {
   number: number;
@@ -121,7 +122,7 @@ export default function DebtDetailScreen() {
         />
         <ChipGroup label="Pagar desde">
           {accounts.map((a) => (
-            <Chip key={a.id} label={a.name} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
+            <Chip key={a.id} label={accountLabel(a)} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
           ))}
         </ChipGroup>
         {error ? <Notice tone="danger" text={error} /> : null}

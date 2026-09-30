@@ -26,6 +26,7 @@ import {
   Text,
 } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
+import { accountLabel } from "@/features/accounts/account-label";
 
 export default function ReceivableDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -190,7 +191,7 @@ export default function ReceivableDetailScreen() {
             {accounts.map((a) => (
               <Chip
                 key={a.id}
-                label={a.name}
+                label={accountLabel(a)}
                 selected={accountId === a.id}
                 onPress={() => setAccountId(a.id)}
               />

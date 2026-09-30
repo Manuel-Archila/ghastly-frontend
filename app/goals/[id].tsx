@@ -23,6 +23,7 @@ import {
   SectionHeader,
 } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
+import { accountLabel } from "@/features/accounts/account-label";
 
 export default function GoalDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -110,7 +111,7 @@ export default function GoalDetailScreen() {
         {goal.linkedAccountId ? (
           <ChipGroup label="Desde la cuenta">
             {accounts.map((a) => (
-              <Chip key={a.id} label={a.name} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
+              <Chip key={a.id} label={accountLabel(a)} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
             ))}
           </ChipGroup>
         ) : null}

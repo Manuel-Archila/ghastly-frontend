@@ -9,6 +9,7 @@ import { Money, parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
 import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
+import { accountLabel } from "@/features/accounts/account-label";
 
 function today(): string {
   return todayIso();
@@ -85,7 +86,7 @@ export default function TransferScreen() {
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
             {accounts.map((a) => (
-              <Chip key={a.id} label={a.name} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
+              <Chip key={a.id} label={accountLabel(a)} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
             ))}
           </View>
         </View>
@@ -96,7 +97,7 @@ export default function TransferScreen() {
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
             {accounts.map((a) => (
-              <Chip key={a.id} label={a.name} selected={toId === a.id} onPress={() => setToId(a.id)} />
+              <Chip key={a.id} label={accountLabel(a)} selected={toId === a.id} onPress={() => setToId(a.id)} />
             ))}
           </View>
         </View>
