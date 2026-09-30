@@ -120,6 +120,11 @@ export interface CreateTransferInput {
   fromAccountId: string;
   toAccountId: string;
   amountCents: number;
+  /** Cuánto llega de verdad a la cuenta destino, en SU moneda — obligatorio
+   * si las dos cuentas no comparten moneda (espejo de
+   * transaction_service.transfer() en el backend: sin esto, transferir Q10 a
+   * una cuenta en dólares los acreditaba como $10, sin convertir nada). */
+  toAmountCents?: number;
   date: string;
   description?: string | null;
 }
@@ -137,26 +142,75 @@ export async function createTransferLocally(input: CreateTransferInput): Promise
   const now = new Date().toISOString();
 
   await db.transaction(async (tx) => {
-    for (const [id, accountId, direction] of [
-      [outId, input.fromAccountId, "out"] as const,
-      [inId, input.toAccountId, "in"] as const,
-    ]) {
-      await tx.insert(transactions).values({
-        id,
-        accountId,
-        kind: "transfer",
-        amountCents: input.amountCents,
-        currency: "GTQ",
-        date: input.date,
-        description: input.description ?? null,
-        transferGroupId: groupId,
-        transferDirection: direction,
-        tags: [],
-        createdAt: now,
-        updatedAt: now,
-      });
-      await applyBalanceDelta(tx, accountId, "transfer", input.amountCents, direction, now);
+    const [fromAccount, toAccount] = await Promise.all([
+      tx.select().from(accounts).where(eq(accounts.id, input.fromAccountId)).limit(1),
+      tx.select().from(accounts).where(eq(accounts.id, input.toAccountId)).limit(1),
+    ]);
+    const from = fromAccount[0];
+    const to = toAccount[0];
+    if (!from || !to) throw new Error("Cuenta no encontrada.");
+
+    const sameCurrency = from.currency === to.currency;
+    if (!sameCurrency && input.toAmountCents === undefined) {
+      // Defensa en profundidad: la UI (transfer.tsx) ya debe pedir este monto
+      // antes de llegar acá — el backend lo rechazaría igual con
+      // TRANSFER_TO_AMOUNT_REQUIRED, pero mejor no mandar nada mal armado.
+      throw new Error("Falta el monto que llega a la cuenta destino.");
     }
+    const inAmount = sameCurrency ? input.amountCents : input.toAmountCents!;
+
+    // fx_rate/base_amount_cents (caso 4): mismo criterio que el backend —
+    // solo tienen ancla cuando uno de los dos lados es GTQ. Puramente
+    // informativo hasta el próximo sync; el servidor manda la verdad.
+    let outBase: number | null = from.currency === "GTQ" ? input.amountCents : null;
+    let inBase: number | null = to.currency === "GTQ" ? inAmount : null;
+    let outRate: number | null = null;
+    let inRate: number | null = null;
+    if (!sameCurrency) {
+      if (from.currency === "GTQ") {
+        inBase = input.amountCents;
+        inRate = input.amountCents / inAmount;
+      } else if (to.currency === "GTQ") {
+        outBase = inAmount;
+        outRate = inAmount / input.amountCents;
+      }
+    }
+
+    await tx.insert(transactions).values({
+      id: outId,
+      accountId: from.id,
+      kind: "transfer",
+      amountCents: input.amountCents,
+      currency: from.currency,
+      fxRate: outRate,
+      baseAmountCents: outBase,
+      date: input.date,
+      description: input.description ?? null,
+      transferGroupId: groupId,
+      transferDirection: "out",
+      tags: [],
+      createdAt: now,
+      updatedAt: now,
+    });
+    await tx.insert(transactions).values({
+      id: inId,
+      accountId: to.id,
+      kind: "transfer",
+      amountCents: inAmount,
+      currency: to.currency,
+      fxRate: inRate,
+      baseAmountCents: inBase,
+      date: input.date,
+      description: input.description ?? null,
+      transferGroupId: groupId,
+      transferDirection: "in",
+      tags: [],
+      createdAt: now,
+      updatedAt: now,
+    });
+    await applyBalanceDelta(tx, from.id, "transfer", input.amountCents, "out", now);
+    await applyBalanceDelta(tx, to.id, "transfer", inAmount, "in", now);
+
     await tx.insert(outboxMutations).values({
       clientMutationId: uuidv7(),
       entityType: "transfer",
@@ -168,6 +222,7 @@ export async function createTransferLocally(input: CreateTransferInput): Promise
         from_account_id: input.fromAccountId,
         to_account_id: input.toAccountId,
         amount_cents: input.amountCents,
+        ...(sameCurrency ? {} : { to_amount_cents: inAmount }),
         date: input.date,
         description: input.description ?? null,
       },

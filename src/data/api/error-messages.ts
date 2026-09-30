@@ -18,6 +18,8 @@ const MESSAGES: Record<string, string> = {
   TEMPLATE_NOT_FOUND: "No encontramos esa plantilla.",
   ACCOUNT_NOT_FOUND: "No encontramos esa cuenta.",
   ACCOUNT_HAS_BALANCE: "La cuenta todavía tiene saldo. Volvé a intentar y confirmá para archivarla igual.",
+  TRANSFER_SAME_ACCOUNT: "La cuenta origen y destino no pueden ser la misma.",
+  TRANSFER_TO_AMOUNT_REQUIRED: "Las cuentas son de monedas distintas: falta cuánto llega a la cuenta destino.",
   // Sesión
   INVALID_CREDENTIALS: "Correo o contraseña incorrectos.",
   EMAIL_TAKEN: "Ya existe una cuenta con ese correo.",
