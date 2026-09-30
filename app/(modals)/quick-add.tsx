@@ -4,11 +4,7 @@ import * as Haptics from "expo-haptics";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { listAccounts, type Account } from "@/data/repositories/accounts";
-import {
-  listCategories,
-  listMostUsedExpenseCategories,
-  type Category,
-} from "@/data/repositories/categories";
+import { listMostUsedCategories, type Category } from "@/data/repositories/categories";
 import {
   createTransactionLocally,
   findPossibleDuplicate,
@@ -21,6 +17,7 @@ import { loadCachedTemplates, refreshTemplateCache } from "@/lib/templateCache";
 import { todayIso } from "@/lib/dates";
 import { Button, Chip, Input, KeypadNumeric, Notice, Screen, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
+import { accountLabel } from "@/features/accounts/account-label";
 
 function today(): string {
   return todayIso();
@@ -73,13 +70,13 @@ export default function QuickAddScreen() {
       let cancelled = false;
       void Promise.all([
         listAccounts(),
-        listMostUsedExpenseCategories(6),
-        listCategories("income"),
+        listMostUsedCategories("expense", 6),
+        listMostUsedCategories("income", 6),
       ]).then(([accs, expenseCats, incomeCats]) => {
         if (cancelled) return;
         setAccounts(accs);
         setExpenseCategories(expenseCats);
-        setIncomeCategories(incomeCats.slice(0, 6));
+        setIncomeCategories(incomeCats);
         setCategoriesLoaded(true);
         setAccountId((prev) => prev ?? accs[0]?.id ?? null);
       });
@@ -89,17 +86,15 @@ export default function QuickAddScreen() {
     }, []),
   );
 
-  // Un gasto no puede existir sin categoría (`domain/categoryRule.ts`). Para no
-  // sumar un tap, la de gasto más usada queda preseleccionada; un ingreso puede
-  // no llevar ninguna. Es un valor derivado: si la elegida ya no aplica al tipo
-  // (se cambió de Gasto a Ingreso), se vuelve al valor por defecto.
+  // Un gasto o un ingreso no pueden existir sin categoría (`domain/categoryRule.ts`).
+  // Para no sumar un tap, la más usada de ese tipo queda preseleccionada. Es un
+  // valor derivado: si la elegida no pertenece al tipo actual (se cambió de Gasto
+  // a Ingreso), se vuelve a la más usada.
   const categories = kind === "expense" ? expenseCategories : incomeCategories;
   const categoryId =
     pickedCategoryId && categories.some((c) => c.id === pickedCategoryId)
       ? pickedCategoryId
-      : kind === "expense"
-        ? (categories[0]?.id ?? null)
-        : null;
+      : (categories[0]?.id ?? null);
 
   // Chips de plantillas: primero la caché (instantáneo, funciona sin red) y
   // en segundo plano se refresca. Solo las de una cuenta local en GTQ: en
@@ -246,25 +241,23 @@ export default function QuickAddScreen() {
                 key={c.id}
                 label={c.name}
                 selected={categoryId === c.id}
-                // Un gasto siempre lleva categoría: tocar la elegida no la quita.
-                onPress={() =>
-                  setPickedCategoryId(kind === "expense" || categoryId !== c.id ? c.id : null)
-                }
+                // Siempre lleva categoría: tocar la elegida no la quita.
+                onPress={() => setPickedCategoryId(c.id)}
               />
             ))}
           </View>
-        ) : categoriesLoaded && kind === "expense" ? (
-          // La app arranca sin categorías: hay que crear la primera antes de
-          // poder guardar un gasto.
+        ) : categoriesLoaded ? (
+          // La app arranca sin categorías: hay que crear la primera de este tipo
+          // antes de poder guardar. Se abre ya en gasto o ingreso, según el caso.
           <View style={{ gap: spacing[2] }}>
             <Notice
               tone="info"
-              text="Para registrar un gasto primero necesitás una categoría. Creá la primera."
+              text={`Para registrar un ${kind === "expense" ? "gasto" : "ingreso"} primero necesitás una categoría de ${kind === "expense" ? "gasto" : "ingreso"}. Creá la primera.`}
             />
             <Button
               label="Crear una categoría"
               variant="secondary"
-              onPress={() => router.push("/categories/new")}
+              onPress={() => router.push({ pathname: "/categories/new", params: { kind } })}
             />
           </View>
         ) : null}
@@ -274,7 +267,7 @@ export default function QuickAddScreen() {
             {accounts.map((a) => (
               <Chip
                 key={a.id}
-                label={a.name}
+                label={accountLabel(a)}
                 selected={accountId === a.id}
                 onPress={() => setAccountId(a.id)}
               />

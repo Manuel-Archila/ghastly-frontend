@@ -78,7 +78,7 @@ export default function CategoriesScreen() {
           message: "Todavía no hay categorías de este tipo.",
           icon: "pricetags-outline",
           actionLabel: "Crear la primera categoría",
-          onAction: () => router.push("/categories/new"),
+          onAction: () => router.push({ pathname: "/categories/new", params: { kind } }),
         }}
       >
         <View>
@@ -102,7 +102,7 @@ export default function CategoriesScreen() {
           })}
         </View>
 
-        <Button label="Nueva categoría" onPress={() => router.push("/categories/new")} />
+        <Button label="Nueva categoría" onPress={() => router.push({ pathname: "/categories/new", params: { kind } })} />
       </ScreenState>
     </ScrollScreen>
   );

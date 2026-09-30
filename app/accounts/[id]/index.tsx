@@ -4,27 +4,14 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 
 import { getAccount, updateAccountLocally, type Account } from "@/data/repositories/accounts";
 import { parseCentsFromInput } from "@/domain/money";
+import { parseDay, parsePercent } from "@/features/accounts/account-draft";
 import { triggerSync } from "@/features/sync/sync-manager";
-import { FormScreen, Input, Screen, ScreenState } from "@/ui/primitives";
+import { FormScreen, Input, Screen, ScreenState, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 /** Convierte un `Decimal` de porcentaje ("2.5") a texto de input, o "". */
 function pctToInput(value: number | null): string {
   return value === null || value === undefined ? "" : String(value);
-}
-
-function parsePercent(text: string): number | null {
-  const trimmed = text.trim().replace(",", ".");
-  if (!trimmed) return null;
-  const n = Number(trimmed);
-  return Number.isFinite(n) ? n : null;
-}
-
-function parseDay(text: string): number | null {
-  const trimmed = text.trim();
-  if (!trimmed) return null;
-  const n = Number(trimmed);
-  return Number.isInteger(n) ? n : null;
 }
 
 export default function EditAccountScreen() {
@@ -109,6 +96,10 @@ export default function EditAccountScreen() {
         submitDisabled={!name.trim()}
       >
         <Input label="Nombre" value={name} onChangeText={setName} />
+        {/* La moneda no se edita: los movimientos y el saldo de la cuenta ya están en ella. */}
+        <Text variant="caption" color="secondary">
+          {`Moneda: ${account.currency} (no se puede cambiar después de crear la cuenta)`}
+        </Text>
         <Input label="Institución" value={institution} onChangeText={setInstitution} placeholder="BAC, G&T, ..." />
         <Input
           label="Últimos 4 dígitos"
@@ -121,35 +112,35 @@ export default function EditAccountScreen() {
         {isCreditCard ? (
           <View style={{ gap: spacing[4] }}>
             <Input
-              label="Límite de crédito"
+              label="Límite de crédito (opcional)"
               value={creditLimit}
               onChangeText={setCreditLimit}
               keyboardType="decimal-pad"
               placeholder="0.00"
             />
             <Input
-              label="Día de corte"
+              label="Día de corte (opcional)"
               value={statementDay}
               onChangeText={setStatementDay}
               keyboardType="number-pad"
               placeholder="1-31"
             />
             <Input
-              label="Día de pago"
+              label="Día de pago (opcional)"
               value={paymentDueDay}
               onChangeText={setPaymentDueDay}
               keyboardType="number-pad"
               placeholder="1-31"
             />
             <Input
-              label="Tasa de interés anual (%)"
+              label="Tasa de interés anual % (opcional)"
               value={interestRate}
               onChangeText={setInterestRate}
               keyboardType="decimal-pad"
               placeholder="0.0"
             />
             <Input
-              label="Pago mínimo (% del saldo)"
+              label="Pago mínimo, % del saldo (opcional)"
               value={minimumPaymentPercent}
               onChangeText={setMinimumPaymentPercent}
               keyboardType="decimal-pad"

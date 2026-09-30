@@ -62,28 +62,32 @@ export async function listCategories(kind?: "expense" | "income"): Promise<Categ
 }
 
 /**
- * Las 6 categorías de gasto más usadas, por frecuencia REAL de uso
+ * Las categorías de un tipo más usadas, por frecuencia REAL de uso
  * (`use_count` local), para los chips de la captura rápida — tras dos
- * semanas el 80% de los gastos entran con un tap en estas (PLAN-frontend §6.1).
+ * semanas el 80% de los movimientos entran con un tap en estas
+ * (PLAN-frontend §6.1). La primera queda preseleccionada.
  */
-export async function listMostUsedExpenseCategories(limit = 6): Promise<Category[]> {
+export async function listMostUsedCategories(
+  kind: "expense" | "income",
+  limit = 6,
+): Promise<Category[]> {
   const usage = await db
     .select({
       categoryId: transactions.categoryId,
       uses: sql<number>`count(*)`.as("uses"),
     })
     .from(transactions)
-    .where(and(eq(transactions.kind, "expense"), isNull(transactions.deletedAt)))
+    .where(and(eq(transactions.kind, kind), isNull(transactions.deletedAt)))
     .groupBy(transactions.categoryId)
     .orderBy(desc(sql`uses`))
     .limit(limit);
 
   const rankedIds = usage.map((row) => row.categoryId).filter((id): id is string => id !== null);
-  const expenseCategories = await listCategories("expense");
+  const ofKind = await listCategories(kind);
 
-  const byId = new Map(expenseCategories.map((c) => [c.id, c]));
+  const byId = new Map(ofKind.map((c) => [c.id, c]));
   const ranked = rankedIds.map((id) => byId.get(id)).filter((c): c is Category => c !== undefined);
-  const rest = expenseCategories.filter((c) => !rankedIds.includes(c.id));
+  const rest = ofKind.filter((c) => !rankedIds.includes(c.id));
   return [...ranked, ...rest].slice(0, limit);
 }
 

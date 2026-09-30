@@ -7,6 +7,7 @@ import { parseCentsFromInput } from "@/domain/money";
 import { CategoryPicker } from "@/features/categories/CategoryPicker";
 import { Button, Chip, Input, Notice, SegmentedControl, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
+import { accountLabel } from "@/features/accounts/account-label";
 
 export interface TemplateFormValues {
   name: string;
@@ -103,7 +104,7 @@ export function TemplateForm({
           {accounts.map((a) => (
             <Chip
               key={a.id}
-              label={a.name}
+              label={accountLabel(a)}
               selected={values.accountId === a.id}
               onPress={() => setValues((p) => ({ ...p, accountId: a.id }))}
             />

@@ -19,6 +19,7 @@ import {
   Text,
 } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
+import { accountLabel } from "@/features/accounts/account-label";
 
 export default function NewInstallmentPlanScreen() {
   const router = useRouter();
@@ -102,7 +103,7 @@ export default function NewInstallmentPlanScreen() {
 
         <ChipGroup label="Cuenta">
           {accounts.map((a) => (
-            <Chip key={a.id} label={a.name} selected={accountId === a.id} onPress={() => setAccountId(a.id)} />
+            <Chip key={a.id} label={accountLabel(a)} selected={accountId === a.id} onPress={() => setAccountId(a.id)} />
           ))}
         </ChipGroup>
 

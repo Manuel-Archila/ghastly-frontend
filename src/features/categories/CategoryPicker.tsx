@@ -3,25 +3,24 @@ import { View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { listCategories, type Category } from "@/data/repositories/categories";
-import { requiresCategory } from "@/domain/categoryRule";
 import { Button, Chip, ChipGroup, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export interface CategoryPickerProps {
   kind: "expense" | "income";
   value: string | null;
-  onChange: (categoryId: string | null) => void;
+  onChange: (categoryId: string) => void;
   label?: string;
 }
 
 /**
- * Selector de categoría para formularios. Aplica la regla "un gasto no puede
- * existir sin categoría" (`domain/categoryRule.ts`) en un solo lugar:
+ * Selector de categoría para formularios. Aplica la regla "un gasto o un ingreso
+ * no pueden existir sin categoría" (`domain/categoryRule.ts`) en un solo lugar:
  *
- * - Gasto: la categoría es obligatoria. Tocar la ya elegida NO la quita.
- * - Ingreso: es opcional; hay un chip "Ninguna" y tocar la elegida la quita.
- * - Sin categorías todavía (la app arranca sin ninguna): un gasto no se puede
- *   guardar, así que en vez de un selector vacío ofrece ir a crear la primera.
+ * - La categoría es obligatoria en ambos tipos: tocar la ya elegida NO la quita.
+ * - Sin categorías de ese tipo todavía (la app arranca sin ninguna), no se puede
+ *   guardar, así que en vez de un selector vacío ofrece ir a crear la primera. La
+ *   pantalla de creación se abre ya en el tipo correcto (gasto o ingreso).
  *
  * Recarga al volver a la pantalla, para que la categoría recién creada aparezca.
  */
@@ -29,7 +28,6 @@ export function CategoryPicker({ kind, value, onChange, label = "Categoría" }: 
   const router = useRouter();
   const { spacing } = useTokens();
   const [categories, setCategories] = useState<Category[] | null>(null);
-  const required = requiresCategory(kind);
 
   useFocusEffect(
     useCallback(() => {
@@ -41,20 +39,20 @@ export function CategoryPicker({ kind, value, onChange, label = "Categoría" }: 
   if (categories === null) return null;
 
   if (categories.length === 0) {
-    if (!required) return null;
+    const noun = kind === "expense" ? "gasto" : "ingreso";
     return (
       <View style={{ gap: spacing[2] }}>
         <Text variant="caption" color="secondary">
           {label}
         </Text>
         <Text variant="body" color="secondary">
-          Todavía no tenés categorías de gasto. Creá una para poder guardar este gasto.
+          {`Todavía no tenés categorías de ${noun}. Creá una para poder guardar este ${noun}.`}
         </Text>
         <Button
           label="Crear una categoría"
           variant="secondary"
           fullWidth={false}
-          onPress={() => router.push("/categories/new")}
+          onPress={() => router.push({ pathname: "/categories/new", params: { kind } })}
         />
       </View>
     );
@@ -62,16 +60,8 @@ export function CategoryPicker({ kind, value, onChange, label = "Categoría" }: 
 
   return (
     <ChipGroup label={label}>
-      {required ? null : (
-        <Chip label="Ninguna" selected={value === null} onPress={() => onChange(null)} />
-      )}
       {categories.map((c) => (
-        <Chip
-          key={c.id}
-          label={c.name}
-          selected={value === c.id}
-          onPress={() => onChange(required ? c.id : value === c.id ? null : c.id)}
-        />
+        <Chip key={c.id} label={c.name} selected={value === c.id} onPress={() => onChange(c.id)} />
       ))}
     </ChipGroup>
   );
