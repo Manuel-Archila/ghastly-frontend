@@ -13,6 +13,7 @@ export default function SettingsScreen() {
     { icon: "copy-outline", label: "Plantillas", href: "/templates" },
     { icon: "notifications-outline", label: "Notificaciones", href: "/settings/notifications" },
     { icon: "phone-portrait-outline", label: "Dispositivos", href: "/settings/devices" },
+    { icon: "sync-outline", label: "Sincronización", href: "/settings/sync" },
   ] as const;
 
   return (
