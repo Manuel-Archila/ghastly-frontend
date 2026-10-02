@@ -4,18 +4,19 @@ import * as Haptics from "expo-haptics";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 
 import { listAccounts, type Account } from "@/data/repositories/accounts";
-import { listMostUsedCategories, type Category } from "@/data/repositories/categories";
+import { listCategories, listMostUsedCategories, type Category } from "@/data/repositories/categories";
 import {
   createTransactionLocally,
   findPossibleDuplicate,
 } from "@/data/repositories/transactions";
 import { isMissingRequiredCategory } from "@/domain/categoryRule";
+import { flattenTree } from "@/domain/categoryTree";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import type { TemplateOut } from "@/data/api/templates";
 import { triggerSync } from "@/features/sync/sync-manager";
 import { loadCachedTemplates, refreshTemplateCache } from "@/lib/templateCache";
 import { todayIso } from "@/lib/dates";
-import { Button, Chip, Input, KeypadNumeric, Notice, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, Input, KeypadNumeric, Notice, Screen, Select, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 import { accountLabel } from "@/features/accounts/account-label";
 
@@ -39,8 +40,13 @@ export default function QuickAddScreen() {
   const [cents, setCents] = useState(0);
   const [description, setDescription] = useState("");
   const [accounts, setAccounts] = useState<Account[]>([]);
+  // Las "más usadas" solo deciden la preselección (ver `categoryId` abajo);
+  // el Select ofrece TODAS — antes, en captura rápida, no había ninguna
+  // forma de elegir una categoría que no estuviera entre las 6 más usadas.
   const [expenseCategories, setExpenseCategories] = useState<Category[]>([]);
   const [incomeCategories, setIncomeCategories] = useState<Category[]>([]);
+  const [allExpenseCategories, setAllExpenseCategories] = useState<Category[]>([]);
+  const [allIncomeCategories, setAllIncomeCategories] = useState<Category[]>([]);
   const [categoriesLoaded, setCategoriesLoaded] = useState(false);
   const [accountId, setAccountId] = useState<string | null>(null);
   const [pickedCategoryId, setPickedCategoryId] = useState<string | null>(null);
@@ -72,11 +78,15 @@ export default function QuickAddScreen() {
         listAccounts(),
         listMostUsedCategories("expense", 6),
         listMostUsedCategories("income", 6),
-      ]).then(([accs, expenseCats, incomeCats]) => {
+        listCategories("expense"),
+        listCategories("income"),
+      ]).then(([accs, expenseCats, incomeCats, allExpenseCats, allIncomeCats]) => {
         if (cancelled) return;
         setAccounts(accs);
         setExpenseCategories(expenseCats);
         setIncomeCategories(incomeCats);
+        setAllExpenseCategories(allExpenseCats);
+        setAllIncomeCategories(allIncomeCats);
         setCategoriesLoaded(true);
         setAccountId((prev) => prev ?? accs[0]?.id ?? null);
       });
@@ -91,10 +101,16 @@ export default function QuickAddScreen() {
   // valor derivado: si la elegida no pertenece al tipo actual (se cambió de Gasto
   // a Ingreso), se vuelve a la más usada.
   const categories = kind === "expense" ? expenseCategories : incomeCategories;
+  const allCategories = kind === "expense" ? allExpenseCategories : allIncomeCategories;
   const categoryId =
-    pickedCategoryId && categories.some((c) => c.id === pickedCategoryId)
+    pickedCategoryId && allCategories.some((c) => c.id === pickedCategoryId)
       ? pickedCategoryId
-      : (categories[0]?.id ?? null);
+      : (categories[0]?.id ?? allCategories[0]?.id ?? null);
+  const categoryOptions = flattenTree(allCategories).map(({ category, depth }) => ({
+    value: category.id,
+    label: category.name,
+    depth,
+  }));
 
   // Chips de plantillas: primero la caché (instantáneo, funciona sin red) y
   // en segundo plano se refresca. Solo las de una cuenta local en GTQ: en
@@ -234,18 +250,14 @@ export default function QuickAddScreen() {
           </Text>
         </View>
 
-        {categories.length > 0 ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-            {categories.map((c) => (
-              <Chip
-                key={c.id}
-                label={c.name}
-                selected={categoryId === c.id}
-                // Siempre lleva categoría: tocar la elegida no la quita.
-                onPress={() => setPickedCategoryId(c.id)}
-              />
-            ))}
-          </View>
+        {allCategories.length > 0 ? (
+          <Select
+            label="Categoría"
+            value={categoryId}
+            options={categoryOptions}
+            // Siempre lleva categoría: no hay opción de "ninguna".
+            onChange={setPickedCategoryId}
+          />
         ) : categoriesLoaded ? (
           // La app arranca sin categorías: hay que crear la primera de este tipo
           // antes de poder guardar. Se abre ya en gasto o ingreso, según el caso.
@@ -263,16 +275,12 @@ export default function QuickAddScreen() {
         ) : null}
 
         {accounts.length > 0 ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-            {accounts.map((a) => (
-              <Chip
-                key={a.id}
-                label={accountLabel(a)}
-                selected={accountId === a.id}
-                onPress={() => setAccountId(a.id)}
-              />
-            ))}
-          </View>
+          <Select
+            label="Cuenta"
+            value={accountId}
+            options={accounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
+            onChange={setAccountId}
+          />
         ) : (
           <Text variant="body" color="secondary">
             Primero creá una cuenta desde la pestaña Hoy.

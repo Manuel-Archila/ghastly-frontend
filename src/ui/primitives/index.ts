@@ -30,6 +30,8 @@ export { StatCard } from "./StatCard";
 export { ScrollScreen } from "./ScrollScreen";
 export { FormScreen } from "./FormScreen";
 export { ChipGroup } from "./ChipGroup";
+export { Select } from "./Select";
+export type { SelectOption } from "./Select";
 export { ScreenHeader } from "./ScreenHeader";
 export { ToastHost } from "./ToastHost";
 export { showToast } from "@/ui/toast";
