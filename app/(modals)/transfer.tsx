@@ -8,7 +8,7 @@ import { createTransferLocally } from "@/data/repositories/transactions";
 import { triggerSync } from "@/features/sync/sync-manager";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
-import { Button, Chip, Input, Screen, Text } from "@/ui/primitives";
+import { Button, Chip, Input, Screen, Select, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 import { accountLabel } from "@/features/accounts/account-label";
 
@@ -25,6 +25,7 @@ export default function TransferScreen() {
   const [toId, setToId] = useState<string | null>(null);
   const [amount, setAmount] = useState("");
   const [toAmount, setToAmount] = useState("");
+  const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,7 +64,7 @@ export default function TransferScreen() {
         amountCents: cents,
         toAmountCents: needsToAmount ? toCents : undefined,
         date: today(),
-        description: toIsCard ? "Pago de tarjeta" : null,
+        description: comment.trim() || (toIsCard ? "Pago de tarjeta" : null),
       });
       triggerSync();
       router.back();
@@ -121,33 +122,32 @@ export default function TransferScreen() {
           />
         ) : null}
 
-        <View style={{ gap: spacing[2] }}>
-          <Text variant="caption" color="secondary">
-            Desde
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-            {accounts.map((a) => (
-              <Chip key={a.id} label={accountLabel(a)} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
-            ))}
-          </View>
-        </View>
+        <Select
+          label="Desde"
+          value={fromId}
+          options={accounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
+          onChange={setFromId}
+        />
 
-        <View style={{ gap: spacing[2] }}>
-          <Text variant="caption" color="secondary">
-            Hacia
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-            {accounts.map((a) => (
-              <Chip key={a.id} label={accountLabel(a)} selected={toId === a.id} onPress={() => setToId(a.id)} />
-            ))}
-          </View>
-        </View>
+        <Select
+          label="Hacia"
+          value={toId}
+          options={accounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
+          onChange={setToId}
+        />
 
         {fromId === toId ? (
           <Text variant="caption" style={{ color: colors.danger.fg }}>
             La cuenta origen y destino no pueden ser la misma.
           </Text>
         ) : null}
+
+        <Input
+          label="Comentario (opcional)"
+          value={comment}
+          onChangeText={setComment}
+          placeholder={toIsCard ? "Pago de tarjeta" : "Para qué fue"}
+        />
 
         {error ? (
           <Text variant="caption" style={{ color: colors.danger.fg }}>
