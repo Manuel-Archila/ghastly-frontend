@@ -165,7 +165,9 @@ async function handleConflicts(
 }
 
 const BATCH_SIZE = 200;
-const MAX_ATTEMPTS = 5;
+// Exportado: settings/sync.tsx lo usa para saber cuándo una mutación ya
+// dejó de reintentarse sola y hay que mostrarla como atascada.
+export const MAX_ATTEMPTS = 5;
 
 /** Empuja el outbox al servidor en lotes. Lo aplicado o en conflicto se
  * saca del outbox; lo que falló por red se deja con `attempts` +1 y
