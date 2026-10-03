@@ -12,8 +12,6 @@ import { Money, parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
 import {
   Button,
-  Chip,
-  ChipGroup,
   HeroFigure,
   Input,
   ListItem,
@@ -24,6 +22,7 @@ import {
   ScrollScreen,
   SectionHeader,
   Text,
+  Select,
 } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 import { accountLabel } from "@/features/accounts/account-label";
@@ -120,11 +119,12 @@ export default function DebtDetailScreen() {
           keyboardType="decimal-pad"
           placeholder="0.00"
         />
-        <ChipGroup label="Pagar desde">
-          {accounts.map((a) => (
-            <Chip key={a.id} label={accountLabel(a)} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
-          ))}
-        </ChipGroup>
+        <Select
+ label="Pagar desde"
+ value={fromId}
+ options={accounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
+ onChange={setFromId}
+ />
         {error ? <Notice tone="danger" text={error} /> : null}
         <Button label={busy ? "Registrando…" : "Registrar pago"} onPress={onPay} disabled={busy} />
       </View>

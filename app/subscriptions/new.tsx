@@ -9,7 +9,7 @@ import { parseCentsFromInput } from "@/domain/money";
 import { CategoryPicker } from "@/features/categories/CategoryPicker";
 import { frequencyLabel } from "@/features/subscriptions/frequency-label";
 import { addDays, todayIso } from "@/lib/dates";
-import { Chip, ChipGroup, DateField, FormScreen, Input, Text } from "@/ui/primitives";
+import { Chip, ChipGroup, DateField, FormScreen, Input, Select, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 import { accountLabel } from "@/features/accounts/account-label";
 
@@ -152,16 +152,12 @@ export default function NewSubscriptionScreen() {
             Necesitás una cuenta primero. Creá una desde &ldquo;Más&rdquo;.
           </Text>
         ) : (
-          <ChipGroup label="Cuenta">
-            {accounts.map((a) => (
-              <Chip
-                key={a.id}
-                label={accountLabel(a)}
-                selected={accountId === a.id}
-                onPress={() => setAccountId(a.id)}
-              />
-            ))}
-          </ChipGroup>
+          <Select
+ label="Cuenta"
+ value={accountId}
+ options={accounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
+ onChange={setAccountId}
+ />
         )}
 
         {needsFxRate ? (

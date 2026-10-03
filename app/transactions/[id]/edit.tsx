@@ -91,11 +91,10 @@ export default function EditTransactionScreen() {
         busy={busy}
         submitDisabled={!amountValid || isMissingRequiredCategory(txn.kind, categoryId)}
       >
-        <CategoryPicker
-          kind={txn.kind as "expense" | "income"}
-          value={categoryId}
-          onChange={setCategoryId}
-        />
+        {/* Una transferencia no lleva categoría. */}
+        {txn.kind === "expense" || txn.kind === "income" ? (
+          <CategoryPicker kind={txn.kind} value={categoryId} onChange={setCategoryId} />
+        ) : null}
 
         <DateField label="Fecha" value={date} onChange={setDate} />
 

@@ -5,7 +5,7 @@ import { listAccounts, type Account } from "@/data/repositories/accounts";
 import { isMissingRequiredCategory } from "@/domain/categoryRule";
 import { parseCentsFromInput } from "@/domain/money";
 import { CategoryPicker } from "@/features/categories/CategoryPicker";
-import { Button, Chip, Input, Notice, SegmentedControl, Text } from "@/ui/primitives";
+import { Button, Input, Notice, SegmentedControl, Select } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 import { accountLabel } from "@/features/accounts/account-label";
 
@@ -96,21 +96,12 @@ export function TemplateForm({
         placeholder="0.00"
       />
 
-      <View style={{ gap: spacing[2] }}>
-        <Text variant="caption" color="secondary">
-          CUENTA
-        </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing[2] }}>
-          {accounts.map((a) => (
-            <Chip
-              key={a.id}
-              label={accountLabel(a)}
-              selected={values.accountId === a.id}
-              onPress={() => setValues((p) => ({ ...p, accountId: a.id }))}
-            />
-          ))}
-        </View>
-      </View>
+      <Select
+        label="Cuenta"
+        value={values.accountId}
+        options={accounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
+        onChange={(accountId) => setValues((p) => ({ ...p, accountId }))}
+      />
 
       <CategoryPicker
         kind={values.kind}

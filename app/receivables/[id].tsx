@@ -13,8 +13,6 @@ import { formatDateLabel, todayIso } from "@/lib/dates";
 import { uuidv7 } from "@/lib/uuid";
 import {
   Button,
-  Chip,
-  ChipGroup,
   DateField,
   HeroFigure,
   Input,
@@ -24,6 +22,7 @@ import {
   ScrollScreen,
   SectionHeader,
   Text,
+  Select,
 } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 import { accountLabel } from "@/features/accounts/account-label";
@@ -187,16 +186,12 @@ export default function ReceivableDetailScreen() {
           <Text variant="caption" color="secondary">
             Crea un ingreso real en la cuenta que elijas. Necesita conexión.
           </Text>
-          <ChipGroup label="Cuenta donde entró el dinero">
-            {accounts.map((a) => (
-              <Chip
-                key={a.id}
-                label={accountLabel(a)}
-                selected={accountId === a.id}
-                onPress={() => setAccountId(a.id)}
-              />
-            ))}
-          </ChipGroup>
+          <Select
+ label="Cuenta donde entró el dinero"
+ value={accountId}
+ options={accounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
+ onChange={setAccountId}
+ />
           <DateField label="Fecha" value={date} onChange={setDate} />
           <Button label="Liquidar" variant="secondary" disabled={busy} onPress={() => void onSettle()} />
         </View>
