@@ -10,13 +10,12 @@ import { CategoryPicker } from "@/features/categories/CategoryPicker";
 import { Money, parseCentsFromInput } from "@/domain/money";
 import { formatDateLabel, todayIso } from "@/lib/dates";
 import {
-  Chip,
-  ChipGroup,
   DateField,
   FormScreen,
   Input,
   SectionHeader,
   Text,
+  Select,
 } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 import { accountLabel } from "@/features/accounts/account-label";
@@ -101,11 +100,12 @@ export default function NewInstallmentPlanScreen() {
         <Input label="Número de cuotas" value={count} onChangeText={setCount} keyboardType="number-pad" />
         <DateField label="Primera cuota" value={firstPaymentDate} onChange={setFirstPaymentDate} />
 
-        <ChipGroup label="Cuenta">
-          {accounts.map((a) => (
-            <Chip key={a.id} label={accountLabel(a)} selected={accountId === a.id} onPress={() => setAccountId(a.id)} />
-          ))}
-        </ChipGroup>
+        <Select
+ label="Cuenta"
+ value={accountId}
+ options={accounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
+ onChange={setAccountId}
+ />
 
         <CategoryPicker kind="expense" value={categoryId} onChange={setCategoryId} />
 

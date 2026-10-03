@@ -3,7 +3,8 @@ import { View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 
 import { listCategories, type Category } from "@/data/repositories/categories";
-import { Button, Chip, ChipGroup, Text } from "@/ui/primitives";
+import { flattenTree } from "@/domain/categoryTree";
+import { Button, Select, Text } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 
 export interface CategoryPickerProps {
@@ -59,10 +60,15 @@ export function CategoryPicker({ kind, value, onChange, label = "Categoría" }: 
   }
 
   return (
-    <ChipGroup label={label}>
-      {categories.map((c) => (
-        <Chip key={c.id} label={c.name} selected={value === c.id} onPress={() => onChange(c.id)} />
-      ))}
-    </ChipGroup>
+    <Select
+      label={label}
+      value={value}
+      options={flattenTree(categories).map(({ category, depth }) => ({
+        value: category.id,
+        label: category.name,
+        depth,
+      }))}
+      onChange={onChange}
+    />
   );
 }

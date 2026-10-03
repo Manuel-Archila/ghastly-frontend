@@ -11,8 +11,6 @@ import { Money, parseCentsFromInput } from "@/domain/money";
 import { todayIso } from "@/lib/dates";
 import {
   Button,
-  Chip,
-  ChipGroup,
   HeroFigure,
   Input,
   Notice,
@@ -21,6 +19,7 @@ import {
   ScreenState,
   ScrollScreen,
   SectionHeader,
+  Select,
 } from "@/ui/primitives";
 import { useTokens } from "@/ui/tokens";
 import { accountLabel } from "@/features/accounts/account-label";
@@ -109,11 +108,12 @@ export default function GoalDetailScreen() {
           placeholder="0.00"
         />
         {goal.linkedAccountId ? (
-          <ChipGroup label="Desde la cuenta">
-            {accounts.map((a) => (
-              <Chip key={a.id} label={accountLabel(a)} selected={fromId === a.id} onPress={() => setFromId(a.id)} />
-            ))}
-          </ChipGroup>
+          <Select
+ label="Desde la cuenta"
+ value={fromId}
+ options={accounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
+ onChange={setFromId}
+ />
         ) : null}
         {error ? <Notice tone="danger" text={error} /> : null}
         <Button label={busy ? "Aportando…" : "Aportar"} onPress={onContribute} disabled={busy} />
