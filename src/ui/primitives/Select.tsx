@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
-  Keyboard,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   View,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icon } from "@/ui/primitives/Icon";
 import { Input } from "@/ui/primitives/Input";
@@ -34,37 +33,10 @@ export interface SelectProps {
 }
 
 const SEARCH_THRESHOLD = 6;
-/** Proporción máxima de la pantalla que ocupa la hoja (sin teclado). */
-const SHEET_MAX_RATIO = 0.7;
-/** Aire que la hoja deja arriba cuando el teclado está abierto. */
-const SHEET_TOP_GAP_RATIO = 0.08;
-
-/**
- * Alto del teclado mientras `active`. Una `Modal` no se redimensiona sola con el
- * teclado, así que la hoja se levanta y se acorta con este valor para que el
- * buscador y las opciones filtradas queden encima del teclado y no debajo.
- */
-function useKeyboardHeight(active: boolean): number {
-  const [height, setHeight] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    const ios = Platform.OS === "ios";
-    const show = Keyboard.addListener(
-      ios ? "keyboardWillShow" : "keyboardDidShow",
-      (e) => setHeight(e.endCoordinates.height),
-    );
-    const hide = Keyboard.addListener(
-      ios ? "keyboardWillHide" : "keyboardDidHide",
-      () => setHeight(0),
-    );
-    return () => {
-      show.remove();
-      hide.remove();
-      setHeight(0);
-    };
-  }, [active]);
-  return active ? height : 0;
-}
+/** Proporción de la pantalla que ocupa la hoja de una lista con buscador. */
+const SEARCHABLE_SHEET_RATIO = 0.5;
+/** Proporción máxima de la hoja de una lista corta (sin buscador). */
+const SHORT_SHEET_MAX_RATIO = 0.7;
 
 /**
  * Selector tipo dropdown: un botón compacto que muestra lo elegido y, al
@@ -85,14 +57,11 @@ export function Select({
     useTokens();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const keyboardHeight = useKeyboardHeight(open);
   const { height: windowHeight } = useWindowDimensions();
-  const sheetMaxHeight = Math.min(
-    windowHeight * SHEET_MAX_RATIO,
-    windowHeight - keyboardHeight - windowHeight * SHEET_TOP_GAP_RATIO,
-  );
+  const insets = useSafeAreaInsets();
 
   const selected = options.find((o) => o.value === value);
+  const searchable = options.length > SEARCH_THRESHOLD;
   const hasChildren = options.some((o) => o.depth === 1);
 
   const filtered = useMemo(() => {
@@ -148,14 +117,23 @@ export function Select({
       <Modal
         visible={open}
         transparent
+        statusBarTranslucent
         animationType="fade"
         onRequestClose={close}
       >
+        {/*
+          Con buscador la hoja se ancla ARRIBA y con alto fijo: el teclado se abre
+          debajo y nunca la tapa, sin depender de medirlo (en Android el comportamiento
+          del teclado dentro de una Modal varía). Alto fijo y no solo `maxHeight`:
+          así la lista (`flex: 1`) siempre tiene un alto definido y hace scroll.
+          Sin buscador es una hoja corta pegada abajo.
+        */}
         <View
           style={{
             flex: 1,
-            justifyContent: "flex-end",
-            paddingBottom: keyboardHeight,
+            justifyContent: searchable ? "flex-start" : "flex-end",
+            paddingTop: searchable ? insets.top + spacing[4] : 0,
+            paddingHorizontal: searchable ? spacing[4] : 0,
           }}
         >
           <Pressable
@@ -172,12 +150,20 @@ export function Select({
           />
           <View
             style={{
-              maxHeight: sheetMaxHeight,
+              ...(searchable
+                ? {
+                    height: windowHeight * SEARCHABLE_SHEET_RATIO,
+                    borderRadius: radii.lg,
+                    paddingBottom: spacing[2],
+                  }
+                : {
+                    maxHeight: windowHeight * SHORT_SHEET_MAX_RATIO,
+                    borderTopLeftRadius: radii.lg,
+                    borderTopRightRadius: radii.lg,
+                    paddingBottom: spacing[6],
+                  }),
               backgroundColor: colors.bg.elevated,
-              borderTopLeftRadius: radii.lg,
-              borderTopRightRadius: radii.lg,
               paddingTop: spacing[3],
-              paddingBottom: keyboardHeight > 0 ? spacing[2] : spacing[6],
             }}
           >
             <View
@@ -209,7 +195,7 @@ export function Select({
               </Pressable>
             </View>
 
-            {options.length > SEARCH_THRESHOLD ? (
+            {searchable ? (
               <View
                 style={{
                   paddingHorizontal: spacing[4],
@@ -225,10 +211,12 @@ export function Select({
               </View>
             ) : null}
 
-            {/* flexShrink: en RN es 0 por defecto, y sin él la lista crece a su alto total
-              y la hoja la recorta en vez de dejarla hacer scroll. */}
             <ScrollView
-              style={{ flexShrink: 1, paddingHorizontal: spacing[4] }}
+              style={{
+                flex: searchable ? 1 : undefined,
+                flexShrink: 1,
+                paddingHorizontal: spacing[4],
+              }}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
             >
