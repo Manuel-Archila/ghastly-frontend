@@ -80,7 +80,7 @@ export default function StatementScreen() {
         </Text>
       )}
 
-      <Button label="Registrar pago" onPress={() => router.push("/(modals)/transfer")} />
+      <Button label="Registrar pago" onPress={() => router.push(`/(modals)/transfer?toAccountId=${account.id}`)} />
     </Screen>
   );
 }

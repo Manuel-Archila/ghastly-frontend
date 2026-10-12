@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 import { errorMessageFor } from "@/data/api/error-messages";
 import { listAccounts, type Account } from "@/data/repositories/accounts";
@@ -18,6 +18,7 @@ function today(): string {
 
 export default function TransferScreen() {
   const router = useRouter();
+  const { toAccountId } = useLocalSearchParams<{ toAccountId?: string }>();
   const { spacing, colors } = useTokens();
 
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -32,10 +33,20 @@ export default function TransferScreen() {
   useEffect(() => {
     void listAccounts().then((accs) => {
       setAccounts(accs);
+      const preset = accs.find((a) => a.id === toAccountId);
+      if (preset) {
+        // Pago de tarjeta: el destino ya viene elegido; el origen es la
+        // primera cuenta que no sea otra tarjeta (de ahí se paga normalmente).
+        const others = accs.filter((a) => a.id !== preset.id);
+        const source = others.find((a) => a.type !== "credit_card") ?? others[0];
+        setFromId(source?.id ?? null);
+        setToId(preset.id);
+        return;
+      }
       setFromId(accs[0]?.id ?? null);
       setToId(accs[1]?.id ?? null);
     });
-  }, []);
+  }, [toAccountId]);
 
   const cents = parseCentsFromInput(amount);
   const fromAccount = accounts.find((a) => a.id === fromId);
