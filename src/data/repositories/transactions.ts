@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, isNull, like, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, like, lte, or, sql } from "drizzle-orm";
 
 import { db } from "@/data/db/client";
 import { accounts, categories, outboxMutations, transactions } from "@/data/db/schema";
@@ -13,6 +13,27 @@ export type Transaction = typeof transactions.$inferSelect;
 export interface TransactionListItem extends Transaction {
   categoryName: string | null;
   accountName: string | null;
+  /** Solo transferencias: nombre de la cuenta de la otra fila del par. */
+  counterpartName: string | null;
+}
+
+/** Nombre de la cuenta de la otra fila de cada transferencia, por grupo. */
+async function counterpartNames(
+  rows: { id: string; transferGroupId: string | null }[],
+): Promise<Map<string, string>> {
+  const groups = [...new Set(rows.map((r) => r.transferGroupId).filter((g): g is string => !!g))];
+  const byRow = new Map<string, string>();
+  if (groups.length === 0) return byRow;
+  const pairs = await db
+    .select({ id: transactions.id, groupId: transactions.transferGroupId, name: accounts.name })
+    .from(transactions)
+    .leftJoin(accounts, eq(accounts.id, transactions.accountId))
+    .where(inArray(transactions.transferGroupId, groups));
+  for (const row of rows) {
+    const other = pairs.find((p) => p.groupId === row.transferGroupId && p.id !== row.id);
+    if (other?.name) byRow.set(row.id, other.name);
+  }
+  return byRow;
 }
 
 export interface CreateTransactionInput {
@@ -518,7 +539,13 @@ export async function listTransactions(
     .orderBy(desc(transactions.date), desc(transactions.id))
     .limit(limit);
 
-  return rows.map((r) => ({ ...r.txn, categoryName: r.categoryName, accountName: r.accountName }));
+  const counterparts = await counterpartNames(rows.map((r) => r.txn));
+  return rows.map((r) => ({
+    ...r.txn,
+    categoryName: r.categoryName,
+    accountName: r.accountName,
+    counterpartName: counterparts.get(r.txn.id) ?? null,
+  }));
 }
 
 export async function getTransaction(id: string): Promise<TransactionListItem | undefined> {
@@ -530,7 +557,14 @@ export async function getTransaction(id: string): Promise<TransactionListItem | 
     .where(eq(transactions.id, id))
     .limit(1);
   const r = rows[0];
-  return r ? { ...r.txn, categoryName: r.categoryName, accountName: r.accountName } : undefined;
+  if (!r) return undefined;
+  const counterparts = await counterpartNames([r.txn]);
+  return {
+    ...r.txn,
+    categoryName: r.categoryName,
+    accountName: r.accountName,
+    counterpartName: counterparts.get(r.txn.id) ?? null,
+  };
 }
 
 export async function countPendingOutbox(): Promise<number> {

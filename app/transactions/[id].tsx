@@ -67,7 +67,20 @@ export default function TransactionDetailScreen() {
       <Card style={{ gap: spacing[3] }}>
         {txn.description ? <DetailRow label="Descripción" value={txn.description} /> : null}
         <DetailRow label="Categoría" value={txn.categoryName ?? "Sin categoría"} />
-        <DetailRow label="Cuenta" value={txn.accountName ?? "—"} />
+        {kind === "transfer" && txn.counterpartName ? (
+          <>
+            <DetailRow
+              label="Desde"
+              value={(txn.transferDirection === "out" ? txn.accountName : txn.counterpartName) ?? "—"}
+            />
+            <DetailRow
+              label="Hacia"
+              value={(txn.transferDirection === "out" ? txn.counterpartName : txn.accountName) ?? "—"}
+            />
+          </>
+        ) : (
+          <DetailRow label="Cuenta" value={txn.accountName ?? "—"} />
+        )}
         <DetailRow label="Fecha" value={formatDateLabel(txn.date)} />
         {txn.merchant ? <DetailRow label="Comercio" value={txn.merchant} /> : null}
         {txn.notes ? <DetailRow label="Notas" value={txn.notes} /> : null}

@@ -18,6 +18,7 @@ function txn(over: Partial<TransactionListItem>): TransactionListItem {
     notes: null,
     transferGroupId: null,
     transferDirection: null,
+    counterpartName: null,
     refundOfId: null,
     isReconciled: false,
     isTaxRelevant: false,

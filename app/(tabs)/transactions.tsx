@@ -8,6 +8,7 @@ import {
   type TransactionFilters,
   type TransactionListItem,
 } from "@/data/repositories/transactions";
+import { transferTitle } from "@/domain/transferTitle";
 import { formatForKind, Money, type TransactionKind } from "@/domain/money";
 import { flattenSections, groupByDay, type FlatRow } from "@/features/transactions/group-by-day";
 import { todayIso } from "@/lib/dates";
@@ -44,11 +45,21 @@ const TransactionRow = memo(function TransactionRow({
   onOpen: (id: string) => void;
 }) {
   const kind = item.kind as TransactionKind;
-  const title = item.description ?? item.categoryName ?? "Sin descripción";
+  const route =
+    kind === "transfer"
+      ? transferTitle(item.transferDirection as "in" | "out" | null, item.accountName, item.counterpartName)
+      : null;
+  const title = route ?? item.description ?? item.categoryName ?? "Sin descripción";
+  // En una transferencia el título ya dice las dos cuentas: el subtítulo
+  // lleva el comentario ("Pago de tarjeta"), no otra vez la cuenta.
+  const subtitle =
+    route !== null
+      ? (item.description ?? undefined)
+      : [item.categoryName, item.accountName].filter(Boolean).join(" · ") || undefined;
   return (
     <ListItem
       title={title}
-      subtitle={[item.categoryName, item.accountName].filter(Boolean).join(" · ") || undefined}
+      subtitle={subtitle}
       trailing={<MoneyText cents={item.amountCents} currency={item.currency} kind={kind} />}
       accessibilityLabel={`${title}, ${formatForKind(new Money(item.amountCents, item.currency), kind)}`}
       onPress={() => onOpen(item.id)}
